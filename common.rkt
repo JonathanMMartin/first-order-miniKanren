@@ -9,6 +9,7 @@
   unify
   disunify
   type-check
+  domain-satisfiable
   walk*
   reify
   reify/initial-var)
@@ -104,6 +105,11 @@
       ((not (var? ct)) #f)                   
       ((var? u) (cons (state (state-sub st) (state-diseq st) (extend-sub u type? (state-types st))) #f))
       (else #f))))
+
+;; universal quantification
+(define (domain-satisfiable v domain)
+  (if (eq? (run 1 (v) domain) '()) #f #t))
+
 
 ;; Reification
 (define (walk* tm st)
