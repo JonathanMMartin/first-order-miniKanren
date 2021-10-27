@@ -200,7 +200,12 @@
    (run* (x) (conde ((== x 12)) ((symbolo x) (=/= 13 x))))
    '((12) ((_.0) ((sym _.0)))))
 
+#|
 ; universal quanification
+(test 'uq-domain-sat-0
+  (domain-satisfiable '() empty-state)
+  #t)
+
 (test 'uq-domain-sat-1
   (domain-satisfiable (== 1 1) empty-state)
   #t)
@@ -208,6 +213,7 @@
 (test 'uq-domain-sat-2
   (domain-satisfiable (=/= 1 1) empty-state)
   #f)
+|#
 
 (test 'appendo-1
   (run* (xs ys) (appendo xs ys '(a b c d)))

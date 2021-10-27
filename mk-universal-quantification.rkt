@@ -1,7 +1,11 @@
 #lang racket
 (provide domain-satisfiable)
-(require "mk-fo.rkt")
+(require "microk-fo.rkt")
 
 ;; universal quantification
 (define (domain-satisfiable domain state)
-  (if (mature (pause state domain)) #t #f))
+  (cond
+    ((eq? domain '()) #t)
+    (else (if (mature (pause state domain)) #t #f))))
+
+  

@@ -2,6 +2,7 @@
 (provide
   (all-from-out "common.rkt")
   (all-from-out "microk-fo.rkt")
+  (all-from-out "mk-universal-quantification.rkt")
   ==
   =/=
 
@@ -16,5 +17,5 @@
   conj*
   disj*
   )
-(require "common.rkt" "microk-fo.rkt")
+(require "common.rkt" "microk-fo.rkt" "mk-universal-quantification.rkt")
 (include "mk-syntax.rkt")

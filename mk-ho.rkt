@@ -1,6 +1,8 @@
 #lang racket
 (provide
+ (all-from-out "microk-ho.rkt")
   ==
+  =/=
 
   define-relation
   fresh
