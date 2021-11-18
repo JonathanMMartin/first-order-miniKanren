@@ -40,14 +40,9 @@
         ((var? t)  (var=? x t))
         (else      #f)))
 
-(define (walk-types t types)
-  (cond
-    ((number? t) number?)
-    ((symbol? t) symbol?)
-    ((string? t) string?)
-    ((var? t) (let* ((xt (assf (lambda (x) (var=? t x)) types)))
-                (if xt (cdr xt) #f)))
-    (else #f)))
+(define (var-type-ref t types)
+  (let* ((xt (assf (lambda (x) (var=? t x)) types)))
+    (if xt (cdr xt) #f)))
 
 ;; Note : walk-not-types returns either #f or a list of the types it is not, that list can be a single element
 (define (walk-not-types t not-types)
@@ -63,8 +58,8 @@
 (define (extend-types x t types)
   `((,x . ,t) . ,types))
 
-(define (reduce-types t types)
-  (filter (lambda (type-constraint) (not (eq? t (car type-constraint)))) types))
+(define (var-type-remove t types)
+  (remove t types (lambda (v type-constraint) (eq? v (car type-constraint)))))
 
 (define (reduce-not-types t not-types)
   (filter (lambda (not-type-constraints) (not (eq? t (car not-type-constraints)))) not-types))
@@ -85,8 +80,8 @@
 ;; Unification
 (define (assign-var u v st)
   (let* ((types (state-types st))
-         (u-type (walk-types u types))
-         (types (if u-type (reduce-types u types) types))
+         (u-type (var-type-ref u types))
+         (types (if u-type (var-type-remove u types) types))
          (new-sub (extend-sub u v (state-sub st))))
     (and new-sub (let ((st (state new-sub (state-diseq st) types (state-not-types st))))
                     (if u-type
@@ -138,16 +133,16 @@
     (foldl/and (lambda (=/=s st) (disunify (map car =/=s) (map cdr =/=s) st)) st diseq)))
 
 (define (foldl/and proc acc lst)
-  (if (empty? lst)
+  (if (null? lst)
       acc
       (let ((new-acc (proc (car lst) acc)))
-        (if new-acc (foldl/and proc new-acc (cdr lst)) #f))))
+        (and new-acc (foldl/and proc new-acc (cdr lst))))))
 
 ;; Type constraints
 (define (typify u type? st)
   (let ((u (walk u (state-sub st))))
     (if (var? u)
-        (let ((u-type (walk-types u (state-types st)))
+        (let ((u-type (var-type-ref u (state-types st)))
               (u-nots (walk-not-types u (state-not-types st))))
           (if u-type
               (and (eqv? type? u-type) st)
@@ -163,7 +158,7 @@
   (let ((u (walk u (state-sub st)))
         (not-types (state-not-types st)))
     (if (var? u)
-        (let ((u-type (walk-types u (state-types st))))
+        (let ((u-type (var-type-ref u (state-types st))))
           (if u-type
               (and (not (eqv? type? u-type)) st)
               (if (check-not-types type? (walk-not-types u not-types))
