@@ -197,37 +197,16 @@
                     ((var? t)  (set! index (+ 1 index))
                                (state (extend-sub t (reified-index index) (state-sub st)) (state-diseq st) (state-types st) (state-not-types st)))
                     (else      st)))))
-    (let ((walked-sub (walk* tm results))
+    (let* ((walked-sub (walk* tm results))
           (diseq-null (null? (state-diseq st)))
           (types-null (null? (state-types st)))
-          (not-types-null (null? (state-not-types st))))
-      (cond
-        ((and diseq-null types-null not-types-null) walked-sub)
-        ((and types-null not-types-null) (Ans 
-                                            walked-sub
-                                            (list (walk* (cons '=/= (map pretty-diseq (state-diseq st))) results))))
-        ((and diseq-null not-types-null) (Ans
-                                            walked-sub
-                                            (walk* (map pretty-types (state-types st)) results)))
-        ((and diseq-null types-null)    (Ans
-                                            walked-sub
-                                            (list (walk* (cons 'not-types (map pretty-not-types (state-not-types st))) results))))
-        (diseq-null                      (Ans
-                                            walked-sub
-                                            (append (walk* (map pretty-types (state-types st)) results)
-                                                    (list (walk* (cons 'not-types (map pretty-not-types (state-not-types st))) results)))))
-        (types-null                      (Ans
-                                            walked-sub
-                                            (append (list (walk* (cons '=/= (map pretty-diseq (state-diseq st))) results))
-                                                    (list (walk* (cons 'not-types (map pretty-not-types (state-not-types st))) results)))))
-        (not-types-null                  (Ans
-                                            walked-sub
-                                            (append (walk* (map pretty-types (state-types st)) results) 
-                                                    (list (walk* (cons '=/= (map pretty-diseq (state-diseq st))) results)))))
-        (else (Ans walked-sub 
-                (append (walk* (map pretty-types (state-types st)) results) 
-                        (list (walk* (cons '=/= (map pretty-diseq (state-diseq st))) results))
-                        (list (walk* (cons 'not-types (map pretty-not-types (state-not-types st))) results)) )))))))
+          (not-types-null (null? (state-not-types st)))
+          (types (walk* (map pretty-types (state-types st)) results))
+          (diseq (if diseq-null '() (list (walk* (cons '=/= (map pretty-diseq (state-diseq st))) results))))
+          (not-types (if not-types-null '() (list (walk* (cons 'not-types (map pretty-not-types (state-not-types st))) results)))))
+      (if (and diseq-null types-null not-types-null)
+          walked-sub
+          (Ans walked-sub (append types diseq not-types))))))
 
 (define (reify/initial-var st)
   (reify initial-var st))
