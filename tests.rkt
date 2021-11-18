@@ -345,7 +345,7 @@
 
 (test 'implication-mult-var-1
   (run* (x y z) (imply (== (list x y) (list y z)) (== z x)))
-  '(_.0))
+  '(#s(Ans (_.0 _.1 _.2) ((=/= ((_.1 _.2) (_.0 _.1))))) (_.0 _.0 _.0)))
 
 (test 'appendo-1
   (run* (xs ys) (appendo xs ys '(a b c d)))
