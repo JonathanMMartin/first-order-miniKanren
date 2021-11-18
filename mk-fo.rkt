@@ -5,6 +5,7 @@
   symbolo
   numbero
   stringo
+  imply
 
   define-relation
   fresh

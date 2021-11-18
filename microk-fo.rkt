@@ -9,6 +9,7 @@
   (struct-out symbolo)
   (struct-out stringo)
   (struct-out numbero)
+  (struct-out imply)
   (struct-out mplus)
   (struct-out bind)
   (struct-out pause)
@@ -27,6 +28,7 @@
 (struct symbolo (t)                      #:prefab)
 (struct stringo (t)                      #:prefab)
 (struct numbero (t)                      #:prefab)
+(struct imply   (g1 g2)                  #:prefab)
 (struct bind    (bind-s bind-g)          #:prefab)
 (struct mplus   (mplus-s1 mplus-s2)      #:prefab)
 (struct pause   (pause-state pause-goal) #:prefab)
@@ -34,6 +36,19 @@
 (define (mature? s) (or (not s) (pair? s)))
 (define (mature s)
   (if (mature? s) s (mature (step s))))
+
+;; Implication
+(define (negate-goal g)
+  (match g
+    ((conj g1 g2) (disj (negate-goal g1) (negate-goal g2)))
+    ((disj g1 g2) (conj (negate-goal g1) (negate-goal g2)))
+    ((== t1 t2) (=/= t1 t2))
+    ((=/= t1 t2) (== t1 t2))
+    (_ #f)
+    ; TODO
+    ; Add type negations 
+    ; Give error with user defined relations
+    ))
 
 (define (start st g)
   (match g
@@ -48,7 +63,10 @@
     ((=/= t1 t2) (state->stream (disunify t1 t2 st)))
     ((symbolo t) (state->stream (typify t symbol? st)))
     ((stringo t) (state->stream (typify t string? st)))
-    ((numbero t) (state->stream (typify t number? st)))))
+    ((numbero t) (state->stream (typify t number? st)))
+    ((imply g1 g2)
+     (step (mplus (pause st (negate-goal g1))
+                  (pause st (conj g1 g2)))))))
 
 (define (step s)
   (match s

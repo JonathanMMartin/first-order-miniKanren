@@ -331,6 +331,22 @@
   (run* (x) (conde ((== x 12)) ((=/= x 'm) (symbolo x))))
   '((12) #s(Ans (_.0) ((sym _.0) (=/= ((_.0 m)))))))
 
+(test 'implication-1
+  (run* (x) (imply (== x 1) (=/= x 2)))
+  '(_.0))
+
+(test 'implication-2
+  (run* (x) (imply (=/= x 1) (== x 2)))
+  '((1) (2)))
+
+(test 'implication-type-constrain-1
+  (run* (x) (imply (=/= x 1) (numbero x)))
+  '(_.0))
+
+(test 'implication-mult-var-1
+  (run* (x y z) (imply (== (list x y) (list y z)) (== z x)))
+  '(_.0))
+
 (test 'appendo-1
   (run* (xs ys) (appendo xs ys '(a b c d)))
   '((()        (a b c d))
