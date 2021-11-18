@@ -9,16 +9,24 @@
   symbolo
   stringo
   numbero
+  not-symbolo
+  not-stringo
+  not-numbero
+
   mplus
   bind
   pause
+  
   mature
   mature?)
 
 (require "common.rkt")
 
-
 ;; higher-order microKanren
+
+
+
+
 
 
 
@@ -37,6 +45,24 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 (define (disj g1 g2)
   (lambda (st) (mplus (pause st g1)
                       (pause st g2))))
@@ -49,6 +75,14 @@
 (define (symbolo t) (lambda (st) (state->stream (typify t symbol? st))))
 (define (stringo t) (lambda (st) (state->stream (typify t string? st))))
 (define (numbero t) (lambda (st) (state->stream (typify t number? st))))
+(define (not-symbolo t) (lambda (st) (state->stream) (not-typify t symbol? st)))
+(define (not-stringo t) (lambda (st) (state->stream) (not-typify t string? st)))
+(define (not-numbero t) (lambda (st) (state->stream) (not-typify t number? st)))
+
+
+
+
+
 
 (define (mplus s1 s2)
   (let ((s1 (if (mature? s1) s1 (s1))))

@@ -5,6 +5,10 @@
   symbolo
   numbero
   stringo
+  not-symbolo
+  not-stringo
+  not-numbero
+  
 
   define-relation
   fresh
