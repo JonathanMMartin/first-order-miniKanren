@@ -61,8 +61,8 @@
 (define (var-type-remove t types)
   (remove t types (lambda (v type-constraint) (eq? v (car type-constraint)))))
 
-(define (reduce-not-types t not-types)
-  (filter (lambda (not-type-constraints) (not (eq? t (car not-type-constraints)))) not-types))
+(define (var-not-types-remove t not-types)
+  (remove t not-types (lambda (v not-type-constraints) (eq? v (car not-type-constraints)))))
 
 (define (extend-not-types x t not-types)
   (match not-types
@@ -88,7 +88,7 @@
                         (typify u u-type st)
                         (let* ((not-types (state-not-types st))
                                (u-nots (walk-not-types u not-types))
-                               (not-types (if u-nots (reduce-not-types u not-types) not-types))
+                               (not-types (if u-nots (var-not-types-remove u not-types) not-types))
                                (st (state (state-sub st) (state-diseq st) (state-types st) not-types)))
                           (if u-nots
                               (foldl/and (lambda (not-t? st) (not-typify u not-t? st)) st u-nots)
@@ -151,7 +151,7 @@
                   (diseq-simplify (state (state-sub st)
                                          (state-diseq st)
                                          (extend-types u type? (state-types st))
-                                         (reduce-not-types u (state-not-types st)))))))
+                                         (var-not-types-remove u (state-not-types st)))))))
         (and (type? u) st))))
 
 (define (not-typify u type? st)
