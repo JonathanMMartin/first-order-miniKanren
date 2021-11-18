@@ -356,8 +356,6 @@
   (run 1 (x) (not-numbero 1729))
   '())
 
-;; more interesting
-
 (test 'unify-and-not-type-0
   (run 1 (x) (== x 5) (not-stringo x))
   '((5)))
@@ -374,6 +372,14 @@
   (run 1 (x) (not-stringo x) (=/= x 43))
   '(#s(Ans (_.0) ((=/= ((_.0 43))) (not-types (_.0 str))))))
 
+(test 'diseq-and-not-type-2
+  (run 1 (x) (=/= x 678) (not-numbero x))
+  '(#s(Ans (_.0) ((not-types (_.0 num))))))
+
+(test 'diseq-and-not-type-3
+  (run 1 (x) (not-numbero x) (=/= x 678))
+  '(#s(Ans (_.0) ((not-types (_.0 num))))))
+
 (test 'type-and-not-type-0
   (run 1 (x) (numbero x) (not-stringo x))
   '(#s(Ans (_.0) ((num _.0)))))
@@ -382,6 +388,7 @@
   (run 1 (x) (not-stringo x) (numbero x))
   '(#s(Ans (_.0) ((num _.0)))))
 
+;; More interesting
 (test 'multi-not-type
   (run 1 (x y) (== x 5) (not-stringo x) (not-numbero y) (not-stringo y))
   '(#s(Ans (5 _.0) ((not-types (_.0 str num))))))
