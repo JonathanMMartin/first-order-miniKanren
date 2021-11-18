@@ -23,3 +23,16 @@
        other-stuff)
 
 |#
+
+
+#|
+    add some stuff to handle goal->state, state->goal so we can work with implication easily
+
+    add some stuff to convert a for all into an implication
+
+    startegies:
+    1) falsify antecedent
+    2) satisfy consequent
+|#
+
+
