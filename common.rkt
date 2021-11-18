@@ -9,6 +9,7 @@
   unify
   disunify
   typify
+  not-typify
   walk*
   reify
   reify/initial-var)
@@ -27,6 +28,7 @@
 (define empty-sub '())
 (define empty-diseq '())
 (define empty-types '())
+(define empty-not-types '())
 
 (define (walk t sub)
   (let ((xt (and (var? t) (assf (lambda (x) (var=? t x)) sub))))
@@ -47,6 +49,11 @@
                 (if xt (cdr xt) #f)))
     (else #f)))
 
+;; Note : walk-not-types returns either #f or a list of the types it is not, that list can be a single element
+(define (walk-not-types t not-types)
+  (let* ((xt (assf (lambda (x) (var=? t x)) not-types)))
+    (if xt (cdr xt) #f)))
+
 (define (extend-sub x t sub)
   (and (not (occurs? x t sub)) `((,x . ,t) . ,sub)))
 
@@ -59,8 +66,18 @@
 (define (reduce-types t types)
   (filter (lambda (type-constraint) (not (eq? t (car type-constraint)))) types))
 
-(struct state (sub diseq types) #:prefab)
-(define empty-state (state empty-sub empty-diseq empty-types))
+(define (reduce-not-types t not-types)
+  (filter (lambda (not-type-constraints) (not (eq? t (car not-type-constraints)))) not-types))
+
+(define (extend-not-types x t not-types)
+  (match not-types
+    ('() (list (list x t)))
+    ((cons (cons var not-t) rest) (if (eqv? x var)
+                                      (cons (cons var (cons t not-t)) rest)
+                                      (cons (cons var not-t) (extend-not-types x t rest))))))
+
+(struct state (sub diseq types not-types) #:prefab)
+(define empty-state (state empty-sub empty-diseq empty-types empty-not-types))
 
 (define (state->stream state)
   (if state (cons state #f) #f))
@@ -71,10 +88,16 @@
          (u-type (walk-types u types))
          (types (if u-type (reduce-types u types) types))
          (new-sub (extend-sub u v (state-sub st))))
-    (and new-sub (let ((st (state new-sub (state-diseq st) types)))
+    (and new-sub (let ((st (state new-sub (state-diseq st) types (state-not-types st))))
                     (if u-type
                         (typify u u-type st)
-                        (diseq-simplify st))))))
+                        (let* ((not-types (state-not-types st))
+                               (u-nots (walk-not-types u not-types))
+                               (not-types (if u-nots (reduce-not-types u not-types) not-types))
+                               (st (state (state-sub st) (state-diseq st) (state-types st) not-types)))
+                          (if u-nots
+                              (foldl/and (lambda (not-t? st) (not-typify u not-t? st)) st u-nots)
+                              (diseq-simplify st))))))))
 
 (define (unify u v st)
   (let* ((sub (state-sub st))
@@ -98,18 +121,20 @@
   (let* ((sub (state-sub st))
          (diseq (state-diseq st))
          (types (state-types st))
+         (not-types (state-not-types st))
          (unify-answer (unify u v st))
          (newsub (if unify-answer (state-sub unify-answer) #f)))
     (cond
       ((not newsub) st)
       ((eq? newsub sub) #f)
-      (else (state sub (extend-diseq (disunify-helper sub newsub '()) diseq) types)))))
+      (else (state sub (extend-diseq (disunify-helper sub newsub '()) diseq) types not-types)))))
 
 (define (diseq-simplify st)
   (let* ((sub (state-sub st))
          (diseq (state-diseq st))
          (types (state-types st))
-         (st (state sub empty-diseq types)))
+         (not-types (state-not-types st))
+         (st (state sub empty-diseq types not-types)))
     (foldl/and (lambda (=/=s st) (disunify (map car =/=s) (map cdr =/=s) st)) st diseq)))
 
 (define (foldl/and proc acc lst)
@@ -122,13 +147,35 @@
 (define (typify u type? st)
   (let ((u (walk u (state-sub st))))
     (if (var? u)
-        (let ((u-type (walk-types u (state-types st))))
+        (let ((u-type (walk-types u (state-types st)))
+              (u-nots (walk-not-types u (state-not-types st))))
           (if u-type
               (and (eqv? type? u-type) st)
-              (diseq-simplify (state (state-sub st)
-                                     (state-diseq st)
-                                     (extend-types u type? (state-types st))))))
+              (if (check-not-types type? u-nots)
+                  #f
+                  (diseq-simplify (state (state-sub st)
+                                         (state-diseq st)
+                                         (extend-types u type? (state-types st))
+                                         (reduce-not-types u (state-not-types st)))))))
         (and (type? u) st))))
+
+(define (not-typify u type? st)
+  (let ((u (walk u (state-sub st)))
+        (not-types (state-not-types st)))
+    (if (var? u)
+        (let ((u-type (walk-types u (state-types st))))
+          (if u-type
+              (and (not (eqv? type? u-type)) st)
+              (if (check-not-types type? (walk-not-types u not-types))
+                  st
+                  (diseq-simplify (state (state-sub st)
+                                         (state-diseq st)
+                                         (state-types st)
+                                         (extend-not-types u type? not-types))))))
+        (and (not (type? u)) st))))
+
+(define (check-not-types type? nots)
+  (and nots (ormap (lambda (n) (eqv? type? n)) nots)))
 
 
 ;; Reification
@@ -148,25 +195,46 @@
               (define t (walk tm (state-sub st)))
               (cond ((pair? t) (loop (cdr t) (loop (car t) st)))
                     ((var? t)  (set! index (+ 1 index))
-                               (state (extend-sub t (reified-index index) (state-sub st)) (state-diseq st) (state-types st)))
+                               (state (extend-sub t (reified-index index) (state-sub st)) (state-diseq st) (state-types st) (state-not-types st)))
                     (else      st)))))
-    (cond
-      ((and (null? (state-diseq st)) (null? (state-types st))) (walk* tm results))
-      ((null? (state-types st)) (Ans 
-                                  (walk* tm results)
-                                  (list (walk* (cons '=/= (map pretty-diseq (state-diseq st))) results))))
-      ((null? (state-diseq st)) (Ans
-                                  (walk* tm results)
-                                  (walk* (map pretty-types (state-types st)) results)))
-      (else (Ans (walk* tm results) 
+    (let ((walked-sub (walk* tm results))
+          (diseq-null (null? (state-diseq st)))
+          (types-null (null? (state-types st)))
+          (not-types-null (null? (state-not-types st))))
+      (cond
+        ((and diseq-null types-null not-types-null) walked-sub)
+        ((and types-null not-types-null) (Ans 
+                                            walked-sub
+                                            (list (walk* (cons '=/= (map pretty-diseq (state-diseq st))) results))))
+        ((and diseq-null not-types-null) (Ans
+                                            walked-sub
+                                            (walk* (map pretty-types (state-types st)) results)))
+        ((and diseq-null types-null)    (Ans
+                                            walked-sub
+                                            (list (walk* (cons 'not-types (map pretty-not-types (state-not-types st))) results))))
+        (diseq-null                      (Ans
+                                            walked-sub
+                                            (append (walk* (map pretty-types (state-types st)) results)
+                                                    (list (walk* (cons 'not-types (map pretty-not-types (state-not-types st))) results)))))
+        (types-null                      (Ans
+                                            walked-sub
+                                            (append (list (walk* (cons '=/= (map pretty-diseq (state-diseq st))) results))
+                                                    (list (walk* (cons 'not-types (map pretty-not-types (state-not-types st))) results)))))
+        (not-types-null                  (Ans
+                                            walked-sub
+                                            (append (walk* (map pretty-types (state-types st)) results) 
+                                                    (list (walk* (cons '=/= (map pretty-diseq (state-diseq st))) results)))))
+        (else (Ans walked-sub 
                 (append (walk* (map pretty-types (state-types st)) results) 
-                        (list (walk* (cons '=/= (map pretty-diseq (state-diseq st))) results) )))))))
+                        (list (walk* (cons '=/= (map pretty-diseq (state-diseq st))) results))
+                        (list (walk* (cons 'not-types (map pretty-not-types (state-not-types st))) results)) )))))))
 
 (define (reify/initial-var st)
   (reify initial-var st))
 
 (define (pretty-diseq =/=s) (map (lambda (=/=) (list (car =/=) (cdr =/=))) =/=s))
 (define (pretty-types constraint) (list (type-check->sym (cdr constraint)) (car constraint)))
+(define (pretty-not-types constraint) (cons (car constraint) (map type-check->sym (cdr constraint))))
 
 (define (type-check->sym pred)
   (cond

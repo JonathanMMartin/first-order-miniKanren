@@ -331,6 +331,63 @@
   (run* (x) (conde ((== x 12)) ((=/= x 'm) (symbolo x))))
   '((12) #s(Ans (_.0) ((sym _.0) (=/= ((_.0 m)))))))
 
+;; Not-typeo tests
+(test 'not-symbolo-0
+  (run 1 (x) (not-symbolo x))
+  '(#s(Ans (_.0) ((not-types (_.0 sym))))))
+
+(test 'not-stringo-0
+  (run* (x) (not-stringo x))
+  '(#s(Ans (_.0) ((not-types (_.0 str))))))
+
+(test 'not-numbero-0
+  (run* (x) (not-numbero x))
+  '(#s(Ans (_.0) ((not-types (_.0 num))))))
+
+(test 'not-symbolo-fail-0
+  (run 1 (x) (not-symbolo 'hello))
+  '())
+
+(test 'not-stringo-fail-0
+  (run 1 (x) (not-stringo "world"))
+  '())
+
+(test 'not-numbero-fail-0
+  (run 1 (x) (not-numbero 1729))
+  '())
+
+;; more interesting
+
+(test 'unify-and-not-type-0
+  (run 1 (x) (== x 5) (not-stringo x))
+  '((5)))
+
+(test 'unify-and-not-type-1
+  (run 1 (x) (not-stringo x) (== x 5))
+  '((5)))
+
+(test 'diseq-and-not-type-0
+  (run 1 (x) (=/= x 43) (not-stringo x))
+  '(#s(Ans (_.0) ((=/= ((_.0 43))) (not-types (_.0 str))))))
+
+(test 'diseq-and-not-type-1
+  (run 1 (x) (not-stringo x) (=/= x 43))
+  '(#s(Ans (_.0) ((=/= ((_.0 43))) (not-types (_.0 str))))))
+
+(test 'type-and-not-type-0
+  (run 1 (x) (numbero x) (not-stringo x))
+  '(#s(Ans (_.0) ((num _.0)))))
+
+(test 'type-and-not-type-1
+  (run 1 (x) (not-stringo x) (numbero x))
+  '(#s(Ans (_.0) ((num _.0)))))
+
+(test 'multi-not-type
+  (run 1 (x y) (== x 5) (not-stringo x) (not-numbero y) (not-stringo y))
+  '(#s(Ans (5 _.0) ((not-types (_.0 str num))))))
+
+
+;; implication tests
 (test 'implication-1
   (run* (x) (imply (== x 1) (=/= x 2)))
   '(_.0))
@@ -338,6 +395,14 @@
 (test 'implication-2
   (run* (x) (imply (=/= x 1) (== x 2)))
   '((1) (2)))
+
+(test 'implication-3
+  (run* (x) (imply (numbero x) (== x 501)))
+  '(#s(Ans (_.0) ((not-types (_.0 num)))) (501)))
+
+(test 'implication-4
+  (run* (x) (imply (numbero x) (not-symbolo x)))
+  '(_.0))
 
 (test 'implication-type-constrain-1
   (run* (x) (imply (=/= x 1) (numbero x)))
@@ -347,6 +412,7 @@
   (run* (x y z) (imply (== (list x y) (list y z)) (== z x)))
   '(#s(Ans (_.0 _.1 _.2) ((=/= ((_.1 _.2) (_.0 _.1))))) (_.0 _.0 _.0)))
 
+#|
 (test 'appendo-1
   (run* (xs ys) (appendo xs ys '(a b c d)))
   '((()        (a b c d))
@@ -781,3 +847,4 @@
     ((1 0 1) (0 1) (1 1 0 1 0 1))
     ((0 1 1) (0 1) (0 0 0 0 0 1))
     ((1 1 1) (0 1) (1 1 0 0 1))))
+|#
