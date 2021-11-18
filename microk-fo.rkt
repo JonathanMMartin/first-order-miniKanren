@@ -56,7 +56,7 @@
     ((not-symbolo t) (symbolo t))
     ((not-stringo t) (stringo t))
     ((not-numbero t) (numbero t))
-    (_ #f)
+    (_ (error "unnegateable goal" g))
     ; TODO
     ; Give error with user defined relations
     ))
