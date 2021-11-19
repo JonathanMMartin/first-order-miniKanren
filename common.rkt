@@ -44,8 +44,7 @@
   (let* ((xt (assf (lambda (x) (var=? t x)) types)))
     (if xt (cdr xt) #f)))
 
-;; Note : walk-not-types returns either #f or a list of the types it is not, that list can be a single element
-(define (walk-not-types t not-types)
+(define (var-not-types-ref t not-types)
   (let* ((xt (assf (lambda (x) (var=? t x)) not-types)))
     (if xt (cdr xt) #f)))
 
@@ -61,15 +60,15 @@
 (define (var-type-remove t types)
   (remove t types (lambda (v type-constraint) (eq? v (car type-constraint)))))
 
-(define (var-not-types-remove t not-types)
-  (remove t not-types (lambda (v not-type-constraints) (eq? v (car not-type-constraints)))))
-
 (define (extend-not-types x t not-types)
   (match not-types
     ('() (list (list x t)))
     ((cons (cons var not-t) rest) (if (eqv? x var)
                                       (cons (cons var (cons t not-t)) rest)
                                       (cons (cons var not-t) (extend-not-types x t rest))))))
+
+(define (var-not-types-remove t not-types)
+  (remove t not-types (lambda (v not-type-constraints) (eq? v (car not-type-constraints)))))
 
 (struct state (sub diseq types not-types) #:prefab)
 (define empty-state (state empty-sub empty-diseq empty-types empty-not-types))
@@ -87,7 +86,7 @@
                     (if u-type
                         (typify u u-type st)
                         (let* ((not-types (state-not-types st))
-                               (u-nots (walk-not-types u not-types))
+                               (u-nots (var-not-types-ref u not-types))
                                (not-types (if u-nots (var-not-types-remove u not-types) not-types))
                                (st (state (state-sub st) (state-diseq st) (state-types st) not-types)))
                           (if u-nots
@@ -143,7 +142,7 @@
   (let ((u (walk u (state-sub st))))
     (if (var? u)
         (let ((u-type (var-type-ref u (state-types st)))
-              (u-nots (walk-not-types u (state-not-types st))))
+              (u-nots (var-not-types-ref u (state-not-types st))))
           (if u-type
               (and (eqv? type? u-type) st)
               (and (not (check-not-types type? u-nots))
@@ -160,7 +159,7 @@
         (let ((u-type (var-type-ref u (state-types st))))
           (if u-type
               (and (not (eqv? type? u-type)) st)
-              (if (check-not-types type? (walk-not-types u not-types))
+              (if (check-not-types type? (var-not-types-ref u not-types))
                   st
                   (diseq-simplify (state (state-sub st)
                                          (state-diseq st)
