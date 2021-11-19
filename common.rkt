@@ -146,12 +146,11 @@
               (u-nots (walk-not-types u (state-not-types st))))
           (if u-type
               (and (eqv? type? u-type) st)
-              (if (check-not-types type? u-nots)
-                  #f
-                  (diseq-simplify (state (state-sub st)
-                                         (state-diseq st)
-                                         (extend-types u type? (state-types st))
-                                         (var-not-types-remove u (state-not-types st)))))))
+              (and (not (check-not-types type? u-nots))
+                   (diseq-simplify (state (state-sub st)
+                                          (state-diseq st)
+                                          (extend-types u type? (state-types st))
+                                          (var-not-types-remove u (state-not-types st)))))))
         (and (type? u) st))))
 
 (define (not-typify u type? st)
