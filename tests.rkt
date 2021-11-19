@@ -250,6 +250,10 @@
   (run* (p q r) (=/= p r) (== p q) (== q r))
   '())
 
+(test 'diseq-fail-6
+  (run* (x y) (=/= x y) (== x 19) (== y 19))
+  '())
+
 ; Type tests start here
 (test 'symbolo-0
   (run 1 (x) (symbolo x))
@@ -388,11 +392,34 @@
   (run 1 (x) (not-stringo x) (numbero x))
   '(#s(Ans (_.0) ((num _.0)))))
 
+(test 'not-type-fail-0
+  (run 1 (x y) (stringo x) (not-stringo y) (== x y))
+  '())
+
+(test 'not-type-fail-1
+  (run 1 (x y) (not-stringo y) (stringo x) (== x y))
+  '())
+
 ;; More interesting
-(test 'multi-not-type
+(test 'multi-not-type-0
   (run 1 (x y) (== x 5) (not-stringo x) (not-numbero y) (not-stringo y))
   '(#s(Ans (5 _.0) ((not-types (_.0 str num))))))
 
+(test 'multi-not-type-1
+  (run 1 (x y) (not-numbero x) (not-symbolo y) (== x y))
+  '(#s(Ans (_.0 _.0) ((not-types (_.0 num sym))))))
+
+(test 'multi-not-type-2
+  (run 1 (x y) (=/= x 7) (not-numbero y) (=/= y 'h) (not-symbolo x) (== x y))
+  '(#s(Ans (_.0 _.0) ((not-types (_.0 sym num))))))
+
+(test 'multi-not-type-3
+  (run 1 (x y) (numbero y) (not-symbolo x) (== x y))
+  '(#s(Ans (_.0 _.0) ((num _.0)))))
+
+(test 'unify-var-not-type
+  (run 1 (x y z) (== x y) (not-symbolo z) (=/= y 7) (== x z))
+  '(#s(Ans (_.0 _.0 _.0) ((=/= ((_.0 7))) (not-types (_.0 sym))))))
 
 ;; implication tests
 (test 'implication-1
