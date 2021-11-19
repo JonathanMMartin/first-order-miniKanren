@@ -75,9 +75,9 @@
 (define (symbolo t) (lambda (st) (state->stream (typify t symbol? st))))
 (define (stringo t) (lambda (st) (state->stream (typify t string? st))))
 (define (numbero t) (lambda (st) (state->stream (typify t number? st))))
-(define (not-symbolo t) (lambda (st) (state->stream) (not-typify t symbol? st)))
-(define (not-stringo t) (lambda (st) (state->stream) (not-typify t string? st)))
-(define (not-numbero t) (lambda (st) (state->stream) (not-typify t number? st)))
+(define (not-symbolo t) (lambda (st) (state->stream (not-typify t symbol? st))))
+(define (not-stringo t) (lambda (st) (state->stream (not-typify t string? st))))
+(define (not-numbero t) (lambda (st) (state->stream (not-typify t number? st))))
 
 
 
