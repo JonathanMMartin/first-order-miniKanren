@@ -153,19 +153,16 @@
         (and (type? u) st))))
 
 (define (not-typify u type? st)
-  (let ((u (walk u (state-sub st)))
-        (not-types (state-not-types st)))
-    (if (var? u)
-        (let ((u-type (var-type-ref u (state-types st))))
-          (if u-type
-              (and (not (eqv? type? u-type)) st)
-              (if (check-not-types type? (var-not-types-ref u not-types))
-                  st
-                  (diseq-simplify (state (state-sub st)
-                                         (state-diseq st)
-                                         (state-types st)
-                                         (extend-not-types u type? not-types))))))
-        (and (not (type? u)) st))))
+  (let* ((sub (state-sub st))
+         (diseq (state-diseq st))
+         (types (state-types st))
+         (not-types (state-not-types st))
+         (typify-answer (typify u type? st))
+         (newtypes (if typify-answer (state-types typify-answer) #f)))
+    (cond
+      ((not newtypes) st)
+      ((eq? newtypes types) #f)
+      (else (diseq-simplify (state sub diseq types (extend-not-types (walk u sub) type? not-types)))))))
 
 (define (check-not-types type? nots)
   (and nots (ormap (lambda (n) (eqv? type? n)) nots)))
