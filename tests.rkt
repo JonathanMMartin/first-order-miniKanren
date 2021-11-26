@@ -463,6 +463,10 @@
   (run* (x) (forall (v) (== x v)))
   '())
 
+(test 'forall-test-4
+  (run* (x) (forall (v) (imply (=/= x v) (=/= 1 v))))
+  '(1))
+
 (test 'appendo-1
   (run* (xs ys) (appendo xs ys '(a b c d)))
   '((()        (a b c d))
