@@ -72,12 +72,24 @@
          (diseq (state-diseq st))
          (types (state-types st))
          (not-types (state-not-types st)))
-    (sub->goal sub)))
+    (sub->goal sub (all))))
 
-(define/match (sub->goal sub)
-  (('()) (all))
-  (((list (cons x y))) (== x y))
-  (((cons (cons x y) rest)) (conj (== x y) (sub->goal rest))))
+(define (sub->goal sub acc)
+  (match sub
+    ('() acc)
+    ((cons (cons x y) rest) (sub->goal rest (conj (== x y) acc)))))
+
+(define (types->goal types acc)
+  (match types
+    ('() acc)
+    ((cons (cons v type?) rest) (types->goal rest (conj type->goal-helper v type?) acc))))
+
+(define (type->goal-helper u type?)
+  (cond
+    ((eq? type? symbol?) (symbolo u))
+    ((eq? type? string?) (stringo u))
+    ((eq? type? number?) (numbero u))
+    (error "Invalid type")))
 
 (define (start st g)
   (match g
