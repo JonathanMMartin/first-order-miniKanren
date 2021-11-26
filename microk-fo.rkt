@@ -13,6 +13,7 @@
   (struct-out not-stringo)
   (struct-out not-numbero)
   (struct-out imply)
+  (struct-out forallo)
   (struct-out mplus)
   (struct-out bind)
   (struct-out pause)
@@ -23,6 +24,8 @@
 (require "common.rkt")
 
 ;; first-order microKanren
+(struct all     ()                       #:prefab)
+(struct none    ()                       #:prefab)
 (struct disj    (g1 g2)                  #:prefab)
 (struct conj    (g1 g2)                  #:prefab)
 (struct relate  (thunk description)      #:prefab)
@@ -35,6 +38,7 @@
 (struct not-stringo (t)                  #:prefab)
 (struct not-numbero (t)                  #:prefab)
 (struct imply   (g1 g2)                  #:prefab)
+(struct forallo (v g)                    #:prefab)
 (struct bind    (bind-s bind-g)          #:prefab)
 (struct mplus   (mplus-s1 mplus-s2)      #:prefab)
 (struct pause   (pause-state pause-goal) #:prefab)
@@ -46,6 +50,8 @@
 ;; Implication
 (define (negate-goal g)
   (match g
+    ((all)  (none))
+    ((none) (all))
     ((conj g1 g2) (disj (negate-goal g1) (negate-goal g2)))
     ((disj g1 g2) (conj (negate-goal g1) (negate-goal g2)))
     ((== t1 t2) (=/= t1 t2))
@@ -56,13 +62,27 @@
     ((not-symbolo t) (symbolo t))
     ((not-stringo t) (stringo t))
     ((not-numbero t) (numbero t))
+    ((imply g1 g2) (conj g1 (negate-goal g2)))
+    ;((forallo v g) (let ((v (var/fresh (quote v)))) (negate-goal g)))  ; TODO : Make sure this is right. Is quote right?
     (_ (error "unnegateable goal" g))
-    ; TODO
-    ; Give error with user defined relations
     ))
+
+(define (state->goal st)
+  (let* ((sub (state-sub st))
+         (diseq (state-diseq st))
+         (types (state-types st))
+         (not-types (state-not-types st)))
+    (sub->goal sub)))
+
+(define/match (sub->goal sub)
+  (('()) (all))
+  (((list (cons x y))) (== x y))
+  (((cons (cons x y) rest)) (conj (== x y) (sub->goal rest))))
 
 (define (start st g)
   (match g
+    ((all) (state->stream st))
+    ((none) (state->stream #f))
     ((disj g1 g2)
      (step (mplus (pause st g1)
                   (pause st g2))))
@@ -80,7 +100,21 @@
     ((not-numbero t) (state->stream (not-typify t number? st)))
     ((imply g1 g2)
      (step (mplus (pause st (negate-goal g1))
-                  (pause st (conj g1 g2)))))))
+                  (pause st (conj g1 g2)))))
+    ((forallo v (imply g1 g2))
+     (let ((candidates (step (pause st (conj g1 g2)))))
+      (if candidates
+          (error "There are more candidates in the implies")
+          (error "forall failed, no candidates"))))
+    ((forallo v g)
+     (let ((candidates (step (pause st g))))
+        (and candidates
+             (let* ((can (car candidates))
+                    (v-goal (state->goal (get-constraints can v))))
+                (if (all? v-goal)
+                    (state->stream can)
+                    (step (pause st (forallo v (imply (negate-goal v-goal) g)))))))))
+    ))
 
 (define (step s)
   (match s

@@ -9,10 +9,12 @@
   not-numbero
   not-stringo
   imply
+  forallo
 
   define-relation
   fresh
   conde
+  forall
   query
   run
   run*

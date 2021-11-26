@@ -25,6 +25,9 @@
   (syntax-rules ()
     ((_ (g gs ...) (h hs ...) ...)
      (disj* (conj* g gs ...) (conj* h hs ...) ...))))
+(define-syntax forall
+  (syntax-rules ()
+    ((_ (v) body) (fresh (v) (forallo v body)))))
 ;; Queries
 (define-syntax query
   (syntax-rules ()

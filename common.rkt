@@ -6,6 +6,7 @@
   (struct-out state)
   empty-state
   state->stream
+  get-constraints
   unify
   disunify
   typify
@@ -75,6 +76,15 @@
 
 (define (state->stream state)
   (if state (cons state #f) #f))
+
+(define (get-constraints st v)
+  (let* ((sub (state-sub st))
+         (diseq (state-diseq st))
+         (types (state-types st))
+         (not-types (state-not-types st))
+         (walked-v (walk v sub))
+         (sub (if (eqv? v walked-v) empty-sub (extend-sub v walked-v empty-sub))))
+    (state sub empty-diseq empty-types empty-not-types)))
 
 ;; Unification
 (define (assign-var u v st)
