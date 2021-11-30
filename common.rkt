@@ -52,7 +52,7 @@
     (and xt (cdr xt))))
 
 (define (extend-scope t s st)
-  (state (cons (list t s) (state-scope st)) (state-sub st) (state-diseq st) (state-types st) (state-not-types st))
+  (state (cons (list t s) (state-scope st)) (state-sub st) (state-diseq st) (state-types st) (state-not-types st)))
 
 (define (extend-sub x t sub)
   (and (not (occurs? x t sub)) `((,x . ,t) . ,sub)))
