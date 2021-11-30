@@ -110,6 +110,7 @@
 (include "stringo-tests.rkt")
 (include "numbero-tests.rkt")
 (include "symbolo-numbero-tests.rkt")
+(include "not-symbolo-tests.rkt")
 
 (display "\nRunning remaining tests")
 (newline)
@@ -119,10 +120,6 @@
   '(#s(Ans ((_.0 . (_.1 . _.0)) _.0 (_.1 . _.0) _.1) ((=/= ((_.0 _.1))) (sym _.0)))))
 
 ;; Not-typeo tests
-(test 'not-symbolo-0
-  (run 1 (x) (not-symbolo x))
-  '(#s(Ans (_.0) ((not-types (_.0 sym))))))
-
 (test 'not-stringo-0
   (run* (x) (not-stringo x))
   '(#s(Ans (_.0) ((not-types (_.0 str))))))
@@ -130,10 +127,6 @@
 (test 'not-numbero-0
   (run* (x) (not-numbero x))
   '(#s(Ans (_.0) ((not-types (_.0 num))))))
-
-(test 'not-symbolo-fail-0
-  (run 1 (x) (not-symbolo 'hello))
-  '())
 
 (test 'not-stringo-fail-0
   (run 1 (x) (not-stringo "world"))
@@ -204,51 +197,9 @@
   (run 1 (x y z) (== x y) (not-symbolo z) (=/= y 7) (== x z))
   '(#s(Ans (_.0 _.0 _.0) ((=/= ((_.0 7))) (not-types (_.0 sym))))))
 
-;; implication tests
-(test 'implication-1
-  (run* (x) (imply (== x 1) (=/= x 2)))
-  '(#s(Ans (_.0) ((=/= ((_.0 1))))) (1)))
+(include "implication-tests.rkt")
 
-(test 'implication-2
-  (run* (x) (imply (=/= x 1) (== x 2)))
-  '((1) (2)))
-
-(test 'implication-3
-  (run* (x) (imply (numbero x) (== x 501)))
-  '(#s(Ans (_.0) ((not-types (_.0 num)))) (501)))
-
-(test 'implication-4
-  (run* (x) (imply (numbero x) (not-symbolo x)))
-  '(#s(Ans (_.0) ((not-types (_.0 num)))) #s(Ans (_.0) ((num _.0)))))
-
-(test 'implication-type-constrain-1
-  (run* (x) (imply (=/= x 1) (numbero x)))
-  '((1) #s(Ans (_.0) ((=/= ((_.0 1))) (num _.0)))))
-
-(test 'implication-mult-var-1
-  (run* (x y z) (imply (== (list x y) (list y z)) (== z x)))
-  '(#s(Ans (_.0 _.1 _.2) ((=/= ((_.0 _.2) (_.1 _.2))))) (_.0 _.0 _.0)))
-
-;; Quniversal Quantification tests
-(test 'forall-test-0
-  (run* (x) (forall (v) (== x 1)))
-  '((1)))
-
-(test 'forall-test-1
-  (run* (x) (forall (v) (== 0 1)))
-  '())
-
-(test 'forall-test-2
-  (run 1 (x) (forall (v) (== v 1)))
-  '())
-
-; (test 'forall-test-3
-;   (run 1 (x) (forall (v) (== x v)))
-;   '())
-
-; (test 'forall-test-4
-;   (run 1 (x) (forall (v) (imply (=/= x v) (=/= 1 v))))
-;   '(1))
+;(include "forall-tests.rkt")
 
 (test 'appendo-0
   (run* (xs ys) (appendo xs ys '(a b c d)))
