@@ -104,236 +104,19 @@
                  (printf "FAILURE\nEXPECTED: ~s\nACTUAL: ~s\n"
                          expected actual))))))))
 
-; Equality tests start here
-(test 'equality-0
-  (run* (q) (== 1 1))
-  '((_.0)))
+(include "unify-tests.rkt")
+(include "disunify-tests.rkt")
+(include "symbolo-tests.rkt")
+(include "stringo-tests.rkt")
+(include "numbero-tests.rkt")
+(include "symbolo-numbero-tests.rkt")
 
-(test 'equality-1
-  (run* (q) (== 5 q))
-  '((5)))
+(display "\nRunning remaining tests")
+(newline)
 
-(test 'equality-2
-  (run* (q) (== q 5))
-  '((5)))
-
-(test 'equality-3
-  (run* (p q) (== p q))
-  '((_.0 _.0)))
-
-(test 'equality-4
-  (run* (p q) (== (cons p 3) (cons 5 q)))
-  '((5 3)))
-
-(test 'equality-5
-  (run* (p q r) (== p q) (== q r))
-  '((_.0 _.0 _.0)))
-
-(test 'equality-6
-  (run* (q) (== q 'hello))
-  '((hello)))
-
-(test 'equality-7
-  (run* (q) (== q "world"))
-  '(("world")))
-
-(test 'equality-with-conde-0
-  (run* (q) (conde ((== 4 q)) ((== 1 q))))
-  '((4) (1)))
-
-(test 'equality-with-conde-1
-  (run* (p q) (== 9 p) (conde ((== 7 q)) ((== 8 q))))
-  '((9 7) (9 8)))
-
-(test 'equality-with-conde-2
-  (run* (p q r) (conde ((== p q)) ((== p r))))
-  '((_.0 _.0 _.1) (_.0 _.1 _.0)))
-
-(test 'equality-fail-0
-  (run* (q) (== q 41) (== q 64))
-  '())
-
-(test 'equality-fail-1
-  (run* (q) (== 93 37) (== q 6))
-  '())
-
-; Disequality tests start here
-(test 'diseq-0
-  (run* (q) (=/= 101 5))
-  '((_.0)))
-
-(test 'diseq-1
-  (run* (q) (=/= 5 q))
-  '(#s(Ans (_.0) ((=/= ((_.0 5)))))))
-
-(test 'diseq-2
-  (run* (q) (=/= q 5))
-  '(#s(Ans (_.0) ((=/= ((_.0 5)))))))
-
-(test 'diseq-3
-  (run* (p q) (=/= p q))
-  '(#s(Ans (_.0 _.1) ((=/= ((_.0 _.1)))))))
-
-(test 'diseq-4
-  (run* (q) (=/= q 12) (=/= q 18)) 
-  '(#s(Ans (_.0) ((=/= ((_.0 18)) ((_.0 12)))))))
-
-(test 'diseq-5
-  (run* (p q r s) (=/= (list p p) (list r s)))
-  '(#s(Ans (_.0 _.1 _.2 _.3) ((=/= ((_.2 _.3) (_.0 _.2)))))))
-
-(test 'diseq-6
-  (run* (q) (=/= q 'hello))
-  '(#s(Ans (_.0) ((=/= ((_.0 hello)))))))
-
-(test 'diseq-7
-  (run* (q) (=/= q "world"))
-  '(#s(Ans (_.0) ((=/= ((_.0 "world")))))))
-
-(test 'equality-diseq-0
-  (run* (q) (== q 29) (=/= q 17))
-  '((29)))
-
-(test 'equality-diseq-1
-  (run* (q) (=/= q 17) (== q 29))
-  '((29)))
-
-(test 'equality-diseq-2
-  (run* (x) (== x 5) (=/= 1 20))
-  '((5)))
-
-(test 'equality-diseq-3
-  (run* (p q) (== p 3) (== q 4) (=/= p q))
-  '((3 4)))
-
-(test 'equality-diseq-4
-  (run* (p q) (=/= p q) (== p 3) (== q 4))
-  '((3 4)))
-
-(test 'equality-diseq-5
-  (run* (x) (== x 13) (=/= (list x 11) (list 13 12)))
-  '((13)))
-
-(test 'equality-diseq-6
-  (run* (x) (=/= (list x 11) (list 13 12)) (== x 13))
-  '((13)))
-
-(test 'diseq-with-conde-0
-  (run* (q) (conde ((=/= q 77)) ((=/= q 54))))
-  '(#s(Ans (_.0) ((=/= ((_.0 77))))) #s(Ans (_.0) ((=/= ((_.0 54)))))))
-
-(test 'diseq-with-conde-1
-  (run* (x) (== x 5) (conde ((=/= x 5)) ((=/= 1 20))))
-  '((5)))
-
-(test 'diseq-fail-0
-  (run* (q) (=/= 1 1))
-  '())
-
-(test 'diseq-fail-1
-  (run* (p q) (== p 1) (== q 2) (=/= (cons p q) (cons 1 2)))
-  '())
-
-(test 'diseq-fail-2
-  (run* (p q) (=/= (cons p q) (cons 1 2)) (== p 1) (== q 2))
-  '())
-
-(test 'diseq-fail-3
-  (run* (p q) (=/= p 1) (=/= q 2) (== (cons p q) (cons 1 2)))
-  '())
-
-(test 'diseq-fail-4
-  (run* (p q) (== (cons p q) (cons 1 2)) (=/= p 1) (=/= q 2))
-  '())
-
-(test 'diseq-fail-5
-  (run* (p q r) (=/= p r) (== p q) (== q r))
-  '())
-
-(test 'diseq-fail-6
-  (run* (x y) (=/= x y) (== x 19) (== y 19))
-  '())
-
-; Type tests start here
-(test 'symbolo-0
-  (run 1 (x) (symbolo x))
-  '(#s(Ans (_.0) ((sym _.0)))))
-
-(test 'stringo-0
-  (run* (x) (stringo x))
-  '(#s(Ans (_.0) ((str _.0)))))
-
-(test 'numbero-0
-  (run* (x) (numbero x))
-  '(#s(Ans (_.0) ((num _.0)))))
-
-(test 'symbolo-fail-0
-  (run 1 (x) (symbolo 1))
-  '())
-
-(test 'string-fail-0
-  (run 1 (x) (stringo 'f))
-  '())
-
-(test 'numbero-fail-0
-  (run 1 (x) (numbero "h"))
-  '())
-
-(test 'multiple-type-constraints
-  (run* (x y) (numbero x) (symbolo y))
-  '(#s(Ans (_.0 _.1) ((sym _.1) (num _.0)))))
-
-(test 'type-var-set-0
-  (run* (x) (== 3 x) (numbero x))
-  '((3)))
-
-(test 'type-var-set-1
-  (run* (x) (numbero x) (== 3 x))
-  '((3)))
-
-(test 'type-fail-0
-  (run* (x) (numbero x) (symbolo x))
-  '())
-
-(test 'type-fail-1
-  (run* (x y) (== x y) (numbero y) (symbolo x))
-  '())
-
-(test 'type-fail-2
-  (run* (x) (== x 12) (symbolo x)) 
-  '())
-
-(test 'type-fail-3
-  (run* (x y) (== x 3) (symbolo y) (== x y))
-  '())
-
-(test 'type-and-diseq-constraints-0
-  (run* (x) (=/= x 12) (numbero x)) 
-  '(#s(Ans (_.0) ((num _.0) (=/= ((_.0 12)))))))
-
-(test 'type-and-diseq-constraints-1
-  (run* (x) (numbero x) (=/= x 12)) 
-  '(#s(Ans (_.0) ((num _.0) (=/= ((_.0 12)))))))
-
-(test 'type-and-diseq-constraints-2
-  (run* (x) (=/= x 12) (symbolo x)) 
-  '(#s(Ans (_.0) ((sym _.0)))))
-
-(test 'type-and-diseq-constraints-3
-  (run* (x) (symbolo x) (=/= x 12)) 
-  '(#s(Ans (_.0) ((sym _.0)))))
-
-(test 'type-with-conde-0
-  (run* (x) (== 3 x) (conde ((numbero x)) ((symbolo x))))
-  '((3)))
-
-(test 'type-with-conde-1
-  (run* (x) (conde ((== x 12)) ((symbolo x) (=/= 13 x))))
-  '((12) #s(Ans (_.0) ((sym _.0)))))
-
-(test 'type-with-conde-2
-  (run* (x) (conde ((== x 12)) ((=/= x 'm) (symbolo x))))
-  '((12) #s(Ans (_.0) ((sym _.0) (=/= ((_.0 m)))))))
+(test 'long-test-0
+  (run* (a b c d) (== a (cons b c)) (symbolo b) (=/= a d) (=/= b d) (== c (cons d b)))
+  '(#s(Ans ((_.0 . (_.1 . _.0)) _.0 (_.1 . _.0) _.1) ((=/= ((_.0 _.1))) (sym _.0)))))
 
 ;; Not-typeo tests
 (test 'not-symbolo-0
@@ -440,16 +223,16 @@
 
 (test 'implication-type-constrain-1
   (run* (x) (imply (=/= x 1) (numbero x)))
-  '((1) #s(Ans (_.0) ((num _.0) (=/= ((_.0 1)))))))
+  '((1) #s(Ans (_.0) ((=/= ((_.0 1))) (num _.0)))))
 
 (test 'implication-mult-var-1
   (run* (x y z) (imply (== (list x y) (list y z)) (== z x)))
-  '(#s(Ans (_.0 _.1 _.2) ((=/= ((_.1 _.2) (_.0 _.1))))) (_.0 _.0 _.0)))
+  '(#s(Ans (_.0 _.1 _.2) ((=/= ((_.0 _.2) (_.1 _.2))))) (_.0 _.0 _.0)))
 
 ;; Quniversal Quantification tests
-; (test 'forall-test-0
-;   (run* (x) (forall (v) (== x 1)))
-;   '((1)))
+(test 'forall-test-0
+  (run* (x) (forall (v) (== x 1)))
+  '((1)))
 
 ; (test 'forall-test-1
 ;   (run* (x) (forall (v) (== 0 1)))
@@ -467,7 +250,7 @@
 ;   (run 1 (x) (forall (v) (imply (=/= x v) (=/= 1 v))))
 ;   '(1))
 
-(test 'appendo-1
+(test 'appendo-0
   (run* (xs ys) (appendo xs ys '(a b c d)))
   '((()        (a b c d))
     ((a)       (b c d))
@@ -475,7 +258,29 @@
     ((a b c)   (d))
     ((a b c d) ())))
 
-(test 'sometimeso-1
+(test 'appendo-1
+  (run* (q) (appendo '(a b c) '(d e) q))
+  '(((a b c d e))))
+
+(test 'appendo-2
+  (run* (q) (appendo q '(d e) '(a b c d e)))
+  '(((a b c))))
+
+(test 'appendo-3
+  (run* (q) (appendo '(a b c) q '(a b c d e)))
+  '(((d e))))
+
+(test 'appendo-4
+  (run 5 (q)
+    (fresh (l s out)
+      (appendo l s out)
+      (== (cons l (cons s (cons out '()))) q)))
+  '(((() _.0 _.0)) (((_.0) _.1 (_.0 . _.1)))
+  (((_.0 _.1) _.2 (_.0 _.1 . _.2))) 
+  (((_.0 _.1 _.2) _.3 (_.0 _.1 _.2 . _.3))) 
+  (((_.0 _.1 _.2 _.3) _.4 (_.0 _.1 _.2 _.3 . _.4)))))
+
+(test 'sometimeso-0
   (run 5 (q) (sometimeso q))
   '((#t) (#t) (#t) (#t) (#t)))
 
