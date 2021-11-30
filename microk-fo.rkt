@@ -24,8 +24,8 @@
 (require "common.rkt")
 
 ;; first-order microKanren
-(struct all     ()                       #:prefab)
-(struct none    ()                       #:prefab)
+(struct true     ()                      #:prefab)
+(struct false    ()                      #:prefab)
 (struct disj    (g1 g2)                  #:prefab)
 (struct conj    (g1 g2)                  #:prefab)
 (struct relate  (thunk description)      #:prefab)
@@ -50,8 +50,8 @@
 ;; Implication
 (define (negate-goal g)
   (match g
-    ((all)  (none))
-    ((none) (all))
+    ((true)  (false))
+    ((false) (true))
     ((conj g1 g2) (disj (negate-goal g1) (negate-goal g2)))
     ((disj g1 g2) (conj (negate-goal g1) (negate-goal g2)))
     ((== t1 t2) (=/= t1 t2))
@@ -72,7 +72,7 @@
          (diseq (state-diseq st))
          (types (state-types st))
          (not-types (state-not-types st)))
-    (sub->goal sub (all))))
+    (sub->goal sub (true))))
 
 (define (sub->goal sub acc)
   (match sub
@@ -93,8 +93,8 @@
 
 (define (start st g)
   (match g
-    ((all) (state->stream st))
-    ((none) (state->stream #f))
+    ((true) (state->stream st))
+    ((false) (state->stream #f))
     ((disj g1 g2)
      (step (mplus (pause st g1)
                   (pause st g2))))
@@ -113,20 +113,35 @@
     ((imply g1 g2)
      (step (mplus (pause st (negate-goal g1))
                   (pause st (conj g1 g2)))))
-    ((forallo v (imply g1 g2))
-     (let ((candidates (step (pause st (conj g1 g2)))))
-      (if candidates
-          (error "There are more candidates in the implies")
-          (error "forall failed, no candidates"))))
+    ; ((forallo v (imply g1 g2))
+    ;  (let ((candidates (step (pause st (conj g1 g2)))))
+    ;   (if candidates
+    ;       (error "There are more candidates in the implies")
+    ;       (error "forall failed, no candidates"))))
     ((forallo v g)
      (let ((candidates (step (pause st g))))
         (and candidates
              (let* ((can (car candidates))
+                    (v-state (get-constraints can v))
                     (v-goal (state->goal (get-constraints can v))))
-                (if (all? v-goal)
+                (displayln (state->goal can))
+                (displayln (state->goal v-state))
+                (if (true? v-goal)
                     (state->stream can)
-                    (step (pause st (forallo v (imply (negate-goal v-goal) g)))))))))
+                    (if (equal? can v-state)
+                        (pause st (forallo v (conj (negate-goal v-goal) g)))
+                        (pause st (forallo v (imply (negate-goal v-goal) g)))))))))
     ))
+
+; constraints we get are identical to can --> don't care about ordering differences
+  ; build conjunction --> (negate-goal v-goal) g
+; else build imply --> (we care about both cases in the imply)
+
+; true/false instead of all/none
+
+; (forallo v (imply (=/= v 1) (== v 1)))
+; (== v 1) --> v=1
+; (conj (=/= v 1) (== v 1)) --> no answer
 
 (define (step s)
   (match s
