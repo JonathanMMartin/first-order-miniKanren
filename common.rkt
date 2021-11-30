@@ -6,6 +6,7 @@
   (struct-out state)
   empty-state
   state->stream
+  extend-scope
   get-constraints
   unify
   disunify
@@ -26,6 +27,7 @@
       (var name index))))
 
 ;; States
+(define empty-scope '())
 (define empty-sub '())
 (define empty-diseq '())
 (define empty-types '())
@@ -49,6 +51,9 @@
   (let* ((xt (assf (lambda (x) (var=? t x)) not-types)))
     (and xt (cdr xt))))
 
+(define (extend-scope t s st)
+  (state (cons (list t s) (state-scope st)) (state-sub st) (state-diseq st) (state-types st) (state-not-types st))
+
 (define (extend-sub x t sub)
   (and (not (occurs? x t sub)) `((,x . ,t) . ,sub)))
 
@@ -71,8 +76,8 @@
 (define (var-not-types-remove t not-types)
   (remove t not-types (lambda (v not-type-constraints) (eq? v (car not-type-constraints)))))
 
-(struct state (sub diseq types not-types) #:prefab)
-(define empty-state (state empty-sub empty-diseq empty-types empty-not-types))
+(struct state (scope sub diseq types not-types) #:prefab)
+(define empty-state (state empty-scope empty-sub empty-diseq empty-types empty-not-types))
 
 (define (state->stream state)
   (if state (cons state #f) #f))
@@ -84,7 +89,7 @@
          (not-types (state-not-types st))
          (walked-v (walk v sub))
          (sub (if (eqv? v walked-v) empty-sub (extend-sub v walked-v empty-sub))))
-    (state sub empty-diseq empty-types empty-not-types)))
+    (state empty-scope sub empty-diseq empty-types empty-not-types)))
 
 ;; Unification
 (define (assign-var u v st)
@@ -92,13 +97,13 @@
          (u-type (var-type-ref u types))
          (types (if u-type (var-type-remove u types) types))
          (new-sub (extend-sub u v (state-sub st))))
-    (and new-sub (let ((st (state new-sub (state-diseq st) types (state-not-types st))))
+    (and new-sub (let ((st (state (state-scope st) new-sub (state-diseq st) types (state-not-types st))))
                     (if u-type
                         (typify u u-type st)
                         (let* ((not-types (state-not-types st))
                                (u-nots (var-not-types-ref u not-types))
                                (not-types (if u-nots (var-not-types-remove u not-types) not-types))
-                               (st (state (state-sub st) (state-diseq st) (state-types st) not-types)))
+                               (st (state (state-scope st) (state-sub st) (state-diseq st) (state-types st) not-types)))
                           (if u-nots
                               (foldl/and (lambda (not-t? st) (not-typify u not-t? st)) st u-nots)
                               (diseq-simplify st))))))))
@@ -122,7 +127,8 @@
       (disunify-helper sub (cdr newsub) (cons (car newsub) acc))))
 
 (define (disunify u v st)
-  (let* ((sub (state-sub st))
+  (let* ((scope (state-scope st))
+         (sub (state-sub st))
          (diseq (state-diseq st))
          (types (state-types st))
          (not-types (state-not-types st))
@@ -131,14 +137,15 @@
     (cond
       ((not newsub) st)
       ((eq? newsub sub) #f)
-      (else (state sub (extend-diseq (disunify-helper sub newsub '()) diseq) types not-types)))))
+      (else (state scope sub (extend-diseq (disunify-helper sub newsub '()) diseq) types not-types)))))
 
 (define (diseq-simplify st)
-  (let* ((sub (state-sub st))
+  (let* ((scope (state-scope st))
+         (sub (state-sub st))
          (diseq (state-diseq st))
          (types (state-types st))
          (not-types (state-not-types st))
-         (st (state sub empty-diseq types not-types)))
+         (st (state scope sub empty-diseq types not-types)))
     (foldl/and (lambda (=/=s st) (disunify (map car =/=s) (map cdr =/=s) st)) st diseq)))
 
 (define (foldl/and proc acc lst)
@@ -156,14 +163,16 @@
           (if u-type
               (and (eqv? type? u-type) st)
               (and (not (check-not-types type? u-nots))
-                   (diseq-simplify (state (state-sub st)
+                   (diseq-simplify (state (state-scope st)
+                                          (state-sub st)
                                           (state-diseq st)
                                           (extend-types u type? (state-types st))
                                           (var-not-types-remove u (state-not-types st)))))))
         (and (type? u) st))))
 
 (define (not-typify u type? st)
-  (let* ((sub (state-sub st))
+  (let* ((scope (state-scope st))
+         (sub (state-sub st))
          (diseq (state-diseq st))
          (types (state-types st))
          (not-types (state-not-types st))
@@ -172,7 +181,7 @@
     (cond
       ((not newtypes) st)
       ((eq? newtypes types) #f)
-      (else (diseq-simplify (state sub diseq types (extend-not-types (walk u sub) type? not-types)))))))
+      (else (diseq-simplify (state scope sub diseq types (extend-not-types (walk u sub) type? not-types)))))))
 
 (define (check-not-types type? nots)
   (and nots (ormap (lambda (n) (eqv? type? n)) nots)))
@@ -195,7 +204,8 @@
                    (define t (walk tm (state-sub st)))
                    (cond ((pair? t) (loop (cdr t) (loop (car t) st)))
                          ((var? t)  (set! index (+ 1 index))
-                                    (state (extend-sub t (reified-index index) (state-sub st))
+                                    (state (state-scope st)
+                                           (extend-sub t (reified-index index) (state-sub st))
                                            (state-diseq st)
                                            (state-types st)
                                            (state-not-types st)))
@@ -203,7 +213,7 @@
     (let* ((walked-sub (walk* tm results))
            (diseq (map (lambda (=/=) (cons (length =/=) =/=)) (state-diseq st)))
            (diseq (map cdr (sort diseq (lambda (x y) (< (car x) (car y))))))
-           (st (diseq-simplify (state (state-sub st) diseq (state-types st) (state-not-types st))))
+           (st (diseq-simplify (state (state-scope st) (state-sub st) diseq (state-types st) (state-not-types st))))
            (diseq (walk* (state-diseq st) results))
            (diseq (map pretty-diseq (filter-not contains-fresh? diseq)))
            (diseq (map (lambda (=/=) (sort =/= term<?)) diseq))
