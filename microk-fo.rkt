@@ -128,7 +128,7 @@
                 (displayln (state->goal v-state))
                 (if (true? v-goal)
                     (state->stream can)
-                    (if (equal? can v-state)
+                    (if (equal? can v-state) ;; TODO basically fix this
                         (pause st (forallo v (conj (negate-goal v-goal) g)))
                         (pause st (forallo v (imply (negate-goal v-goal) g)))))))))
     ))

@@ -2,7 +2,7 @@
 (provide
   (struct-out var)
   initial-var
-  var/fresh
+  var/new
   (struct-out state)
   empty-state
   state->stream
@@ -20,7 +20,7 @@
 (define (var=? x1 x2)
   (= (var-index x1) (var-index x2)))
 (define initial-var (var #f 0))
-(define var/fresh
+(define var/new
   (let ((index 0))
     (lambda (name) (set! index (+ 1 index))
       (var name index))))
