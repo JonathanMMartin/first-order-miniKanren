@@ -13,6 +13,10 @@
   (run* (x) (symbolo x) (=/= x 12)) 
   '(#s(Ans (_.0) ((sym _.0)))))
 
+(test 'symbolo-3
+  (run* (a b c d) (== a (cons b c)) (symbolo b) (=/= a d) (=/= b d) (== c (cons d b)))
+  '(#s(Ans ((_.0 . (_.1 . _.0)) _.0 (_.1 . _.0) _.1) ((=/= ((_.0 _.1))) (sym _.0)))))
+
 (test 'symbolo-fail-0
   (run 1 (x) (symbolo 1))
   '())

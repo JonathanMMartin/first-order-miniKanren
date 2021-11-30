@@ -111,95 +111,14 @@
 (include "numbero-tests.rkt")
 (include "symbolo-numbero-tests.rkt")
 (include "not-symbolo-tests.rkt")
+(include "not-stringo-tests.rkt")
+(include "not-numbero-tests.rkt")
+(include "not-symbolo-not-numbero-tests.rkt")
+(include "implication-tests.rkt")
+(include "forall-tests.rkt")
 
 (display "\nRunning remaining tests")
 (newline)
-
-(test 'long-test-0
-  (run* (a b c d) (== a (cons b c)) (symbolo b) (=/= a d) (=/= b d) (== c (cons d b)))
-  '(#s(Ans ((_.0 . (_.1 . _.0)) _.0 (_.1 . _.0) _.1) ((=/= ((_.0 _.1))) (sym _.0)))))
-
-;; Not-typeo tests
-(test 'not-stringo-0
-  (run* (x) (not-stringo x))
-  '(#s(Ans (_.0) ((not-types (_.0 str))))))
-
-(test 'not-numbero-0
-  (run* (x) (not-numbero x))
-  '(#s(Ans (_.0) ((not-types (_.0 num))))))
-
-(test 'not-stringo-fail-0
-  (run 1 (x) (not-stringo "world"))
-  '())
-
-(test 'not-numbero-fail-0
-  (run 1 (x) (not-numbero 1729))
-  '())
-
-(test 'unify-and-not-type-0
-  (run 1 (x) (== x 5) (not-stringo x))
-  '((5)))
-
-(test 'unify-and-not-type-1
-  (run 1 (x) (not-stringo x) (== x 5))
-  '((5)))
-
-(test 'diseq-and-not-type-0
-  (run 1 (x) (=/= x 43) (not-stringo x))
-  '(#s(Ans (_.0) ((=/= ((_.0 43))) (not-types (_.0 str))))))
-
-(test 'diseq-and-not-type-1
-  (run 1 (x) (not-stringo x) (=/= x 43))
-  '(#s(Ans (_.0) ((=/= ((_.0 43))) (not-types (_.0 str))))))
-
-(test 'diseq-and-not-type-2
-  (run 1 (x) (=/= x 678) (not-numbero x))
-  '(#s(Ans (_.0) ((not-types (_.0 num))))))
-
-(test 'diseq-and-not-type-3
-  (run 1 (x) (not-numbero x) (=/= x 678))
-  '(#s(Ans (_.0) ((not-types (_.0 num))))))
-
-(test 'type-and-not-type-0
-  (run 1 (x) (numbero x) (not-stringo x))
-  '(#s(Ans (_.0) ((num _.0)))))
-
-(test 'type-and-not-type-1
-  (run 1 (x) (not-stringo x) (numbero x))
-  '(#s(Ans (_.0) ((num _.0)))))
-
-(test 'not-type-fail-0
-  (run 1 (x y) (stringo x) (not-stringo y) (== x y))
-  '())
-
-(test 'not-type-fail-1
-  (run 1 (x y) (not-stringo y) (stringo x) (== x y))
-  '())
-
-;; More interesting
-(test 'multi-not-type-0
-  (run 1 (x y) (== x 5) (not-stringo x) (not-numbero y) (not-stringo y))
-  '(#s(Ans (5 _.0) ((not-types (_.0 str num))))))
-
-(test 'multi-not-type-1
-  (run 1 (x y) (not-numbero x) (not-symbolo y) (== x y))
-  '(#s(Ans (_.0 _.0) ((not-types (_.0 num sym))))))
-
-(test 'multi-not-type-2
-  (run 1 (x y) (=/= x 7) (not-numbero y) (=/= y 'h) (not-symbolo x) (== x y))
-  '(#s(Ans (_.0 _.0) ((not-types (_.0 sym num))))))
-
-(test 'multi-not-type-3
-  (run 1 (x y) (numbero y) (not-symbolo x) (== x y))
-  '(#s(Ans (_.0 _.0) ((num _.0)))))
-
-(test 'unify-var-not-type
-  (run 1 (x y z) (== x y) (not-symbolo z) (=/= y 7) (== x z))
-  '(#s(Ans (_.0 _.0 _.0) ((=/= ((_.0 7))) (not-types (_.0 sym))))))
-
-(include "implication-tests.rkt")
-
-;(include "forall-tests.rkt")
 
 (test 'appendo-0
   (run* (xs ys) (appendo xs ys '(a b c d)))
