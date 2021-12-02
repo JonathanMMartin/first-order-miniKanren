@@ -13,7 +13,7 @@
   (struct-out not-stringo)
   (struct-out not-numbero)
   (struct-out imply)
-  (struct-out exists)
+  (struct-out existo)
   (struct-out forallo)
   (struct-out mplus)
   (struct-out bind)
@@ -39,8 +39,8 @@
 (struct not-stringo (t)                  #:prefab)
 (struct not-numbero (t)                  #:prefab)
 (struct imply   (g1 g2)                  #:prefab)
-(struct exists  (v g)                    #:prefab)
-(struct forallo (v g)                    #:prefab)
+(struct existo  (vlst g)                 #:prefab)
+(struct forallo (vlst g)                 #:prefab)
 (struct bind    (bind-s bind-g)          #:prefab)
 (struct mplus   (mplus-s1 mplus-s2)      #:prefab)
 (struct pause   (pause-state pause-goal) #:prefab)
@@ -65,9 +65,8 @@
     ((not-stringo t) (stringo t))
     ((not-numbero t) (numbero t))
     ((imply g1 g2) (conj g1 (negate-goal g2)))
-    ((exists v g) (forallo v (negate-goal g)))
-    ((forallo v g) (exists v (negate-goal g)))
-    ;((forallo v g) (let ((v (var/fresh (quote v)))) (negate-goal g)))  ; TODO : Make sure this is right. Is quote right?
+    ((existo vlst g) (forallo vlst (negate-goal g)))
+    ((forallo vlst g) (existo vlst (negate-goal g)))
     (_ (error "unnegateable goal" g))
     ))
 
@@ -122,32 +121,22 @@
     ;   (if candidates
     ;       (error "There are more candidates in the implies")
     ;       (error "forall failed, no candidates"))))
-    ((exists v g) (pause (extend-scope v 'e st) g))
-    ((forallo v g)
-     (let* ((st (extend-scope v 'u st))
-            (candidates (step (pause st g))))
-        (and candidates
-             (let* ((can (car candidates))
-                    (v-state (get-constraints can v))
-                    (v-goal (state->goal (get-constraints can v))))
-                ;(displayln (state->goal can))
-                ;(displayln (state->goal v-state))
+    ((existo vlst g) (step (pause (extend-scope-multi vlst 'e st) g)))
+    ((forallo vlst g)
+     (let* ((v (first vlst))
+            (candidates (step (pause st (existo vlst g))))
+            (can (and candidates (step candidates)))
+            (can (and can (car can)))
+            (st (extend-scope-multi vlst 'u st)))
+        (and can
+             (let* ((v-state (get-constraints can v))
+                    (v-goal (state->goal v-state)))
                 (if (true? v-goal)
                     (state->stream can)
-                    (if (equal? can v-state) ;; TODO basically fix this
-                        (pause st (forallo v (conj (negate-goal v-goal) g)))
-                        (pause st (forallo v (imply (negate-goal v-goal) g)))))))))
+                    (if (state=? (remove-initial can) v-state)
+                        (pause st (forallo vlst (conj (negate-goal v-goal) g)))
+                        (pause st (forallo vlst (imply (negate-goal v-goal) g)))))))))
     ))
-
-; constraints we get are identical to can --> don't care about ordering differences
-  ; build conjunction --> (negate-goal v-goal) g
-; else build imply --> (we care about both cases in the imply)
-
-; true/false instead of all/none
-
-; (forallo v (imply (=/= v 1) (== v 1)))
-; (== v 1) --> v=1
-; (conj (=/= v 1) (== v 1)) --> no answer
 
 (define (step s)
   (match s

@@ -6,7 +6,9 @@
   (struct-out state)
   empty-state
   state->stream
-  extend-scope
+  state=?
+  remove-initial
+  extend-scope-multi
   get-constraints
   unify
   disunify
@@ -15,6 +17,12 @@
   walk*
   reify
   reify/initial-var)
+
+(define (foldl/and proc acc lst)
+  (if (null? lst)
+      acc
+      (let ((new-acc (proc (car lst) acc)))
+        (and new-acc (foldl/and proc new-acc (cdr lst))))))
 
 ;; Logic variables
 (struct var (name index) #:prefab)
@@ -51,8 +59,25 @@
   (let* ((xt (assf (lambda (x) (var=? t x)) not-types)))
     (and xt (cdr xt))))
 
-(define (extend-scope t s st)
-  (state (cons (list t s) (state-scope st)) (state-sub st) (state-diseq st) (state-types st) (state-not-types st)))
+(define (extend-scope-multi vlst s st)
+  (if (null? vlst)
+      st
+      (let ((scope (state-scope st))
+            (sub (state-sub st))
+            (diseq (state-diseq st))
+            (types (state-types st))
+            (not-types (state-not-types st)))
+        (extend-scope-multi (rest vlst) s (state (extend-scope (first vlst) s scope) sub diseq types not-types)))))
+
+(define (extend-scope var s scope)
+  (cons (cons var s) scope))
+
+(define (scope-order u v scope)
+  (cond
+    ((null? scope) (error "WTF"))
+    ((var=? (car (first scope)) u) (cons u v))
+    ((var=? (car (first scope)) v) (cons v u))
+    (else (scope-order u v (rest scope)))))
 
 (define (extend-sub x t sub)
   (and (not (occurs? x t sub)) `((,x . ,t) . ,sub)))
@@ -82,14 +107,44 @@
 (define (state->stream state)
   (if state (cons state #f) #f))
 
+(define (state-subsumed? st1 st2)
+  (let* ((sub (state-sub st1))
+         (diseq (state-diseq st1))
+         (types (state-types st1))
+         (not-types (state-not-types st1))
+         (st3 (foldl/and (lambda (uni st) (unify (car uni) (cdr uni) st)) st2 sub))
+         (st3 (and st3 (foldl/and (lambda (=/=s st) (disunify (map car =/=s) (map cdr =/=s) st)) st3 diseq)))
+         (st3 (and st3 (foldl/and (lambda (t st) (typify (car t) (cdr t) st)) st3 types)))
+         (st3 (and st3 (foldl/and 
+                         (lambda (u-nots st) (foldl/and (lambda (not-t? sta) (not-typify (first u-nots) not-t? sta)) st (rest u-nots)))
+                         st3 not-types))))
+    (and st3 (equal? st2 st3))))
+
+(define (state=? st1 st2) ;; TODO write some tests of this, I am a little nervous because state-subsumed is not "obviously bug free"
+  (and (state-subsumed? st1 st2) (state-subsumed? st2 st1)))
+
+(define (remove-initial st)
+  (let* ((scope (state-scope st))
+         (sub (state-sub st))
+         (diseq (state-diseq st))
+         (types (state-types st))
+         (not-types (state-not-types st))
+         (sub (remove-last sub)))
+    (state scope sub diseq types not-types)))
+
+(define/match (remove-last lst)
+  (((cons x '())) '())
+  (((cons x xs)) (cons x (remove-last xs))))
+
 (define (get-constraints st v)
-  (let* ((sub (state-sub st))
+  (let* ((scope (state-scope st))
+         (sub (state-sub st))
          (diseq (state-diseq st))
          (types (state-types st))
          (not-types (state-not-types st))
          (walked-v (walk v sub))
          (sub (if (eqv? v walked-v) empty-sub (extend-sub v walked-v empty-sub))))
-    (state empty-scope sub empty-diseq empty-types empty-not-types)))
+    (state scope sub empty-diseq empty-types empty-not-types)))
 
 ;; Unification
 (define (assign-var u v st)
@@ -109,9 +164,13 @@
                               (diseq-simplify st))))))))
 
 (define (unify u v st)
-  (let* ((sub (state-sub st))
+  (let* ((scope (state-scope st))
+         (sub (state-sub st))
          (u (walk u sub))
-         (v (walk v sub)))
+         (v (walk v sub))
+         (uv (if (and (var? u) (var? v)) (scope-order u v scope) (cons u v)))
+         (u (car uv))
+         (v (cdr uv)))
     (cond
       ((and (var? u) (var? v) (var=? u v)) st)
       ((var? u)                            (assign-var u v st))
@@ -148,11 +207,7 @@
          (st (state scope sub empty-diseq types not-types)))
     (foldl/and (lambda (=/=s st) (disunify (map car =/=s) (map cdr =/=s) st)) st diseq)))
 
-(define (foldl/and proc acc lst)
-  (if (null? lst)
-      acc
-      (let ((new-acc (proc (car lst) acc)))
-        (and new-acc (foldl/and proc new-acc (cdr lst))))))
+
 
 ;; Type constraints
 (define (typify u type? st)
@@ -222,6 +277,7 @@
            (types (filter-not contains-fresh? types)) ;; TODO fix not types the same way ((num? x) (symbol? y) () ())
            (not-types (walk* (map pretty-not-types (state-not-types st)) results)) ;; ((x num? string? ...) (y ...))
            (not-types (filter-not contains-fresh? not-types))
+           (not-types (map (lambda (not-t) (sort not-t term<?)) not-types))
            (not-types (if (null? not-types) '() (list (cons 'not-types not-types))))
            (cxs (append types diseq not-types)))
       (if (null? cxs)
