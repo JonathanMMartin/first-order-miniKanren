@@ -13,10 +13,10 @@
   (run 1 (x) (forall (v) (== v 1)))
   '())
 
-; (test 'forall-test-3
-;   (run 1 (x) (forall (v) (== x v)))
-;   '())
+(test 'forall-test-3
+  (run 1 (x) (forall (v) (== x v)))
+  '())
 
-; (test 'forall-test-4
-;   (run 1 (x) (forall (v) (imply (=/= x v) (=/= 1 v))))
-;   '(1))
+;(test 'forall-test-4
+;  (run 1 (x) (forall (v) (imply (=/= x v) (=/= 1 v))))
+;  '(1))
