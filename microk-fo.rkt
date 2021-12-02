@@ -121,11 +121,11 @@
     ;   (if candidates
     ;       (error "There are more candidates in the implies")
     ;       (error "forall failed, no candidates"))))
-    ((existo vlst g) (step (pause (extend-scope-multi vlst 'e st) g)))
+    ((existo vlst g) (step (pause (extend-scope-multi vlst 'e st) g))) ; TODO change to single variable
     ((forallo vlst g)
      (let* ((v (first vlst))
             (candidates (step (pause st (existo vlst g))))
-            (can (and candidates (step candidates)))
+            (can (and candidates (step candidates))) ; TODO this was a hack, still doesn't work
             (can (and can (car can)))
             (st (extend-scope-multi vlst 'u st)))
         (and can
