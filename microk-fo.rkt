@@ -139,21 +139,43 @@
 ;                         (pause st (forallo vlst (imply (negate-goal v-goal) g)))))))))
 ;     ))
 
+;; IDEA: have sorted order for terms, ie literal first (== then =/= then typo then not-typo), then conj then forall (or something like that)
+
 (define/match (normalize-goal g)
   (((disj (disj g1 g2) g3))
     (normalize-goal (disj g1 (disj g2 g3))))
-  (((disj g1 g2))     ;  (disj (disj (conj ...) ...) ...)
-    (let ((norm-g1 (normalize-goal g1)))
-      (if (equal? norm-g1 g1)    ; TODO don't do this
-          (disj norm-g1 (normalize-goal g2))
-          (normalize-goal (disj norm-g1 (normalize-goal g2))))))
+  ;(((disj (conj g1 g2) (conj g3 g4)))
+  ;  (let ((g1 (normalize-goal (conj g1 g2)))
+  ;        (g2 (normalize-goal (conj g3 g4))))
+  ;    (if (equal? g1 g2)
+  ;        g1
+  ;        (disj g1 g2))))
+  (((disj (conj g1 g2) g3))
+    (match (normalize-goal (conj g1 g2))
+      ((disj h1 h2) (normalize-goal (disj h1 (disj h2 g3))))
+      (h (disj h (normalize-goal g3)))))
+    ;(match (normalize-goal g3)
+    ;  ((disj h1 h2) (normalize-goal (disj h1 (disj h2 (conj g1 g2)))))
+    ;  (h (normalize-goal (disj h (conj g1 g2))))))
+  (((disj g1 g2))
+    (let ((g1 (normalize-goal g1))
+          (g2 (normalize-goal g2)))
+      (if (equal? g1 g2)
+          g1
+          (disj g1 g2)))) ;; use sorted order here if g1 < g2, then (disj g1 g2) else (disj g2 g1)
   
   (((conj (conj g1 g2) g3))
     (normalize-goal (conj g1 (conj g2 g3))))
   (((conj (disj g1 g2) g3))
     (normalize-goal (disj (conj g1 g3) (conj g2 g3))))
+  (((conj g1 (disj g2 g3)))
+    (normalize-goal (disj (conj g1 g2) (conj g1 g3))))
   (((conj g1 g2))
-    (conj (normalize-goal g1) (normalize-goal g2)))
+    (let ((g1 (normalize-goal g1))
+          (g2 (normalize-goal g2)))
+      (if (equal? g1 g2)
+          g1
+          (conj g1 g2))))
   ((g) g)
 
 
