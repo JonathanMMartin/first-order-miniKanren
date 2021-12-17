@@ -20,7 +20,8 @@
   (struct-out pause)
   step
   mature
-  mature?)
+  mature?
+  normalize-goal)
 
 (require "common.rkt")
 
@@ -93,6 +94,75 @@
     ((eq? type? string?) (stringo u))
     ((eq? type? number?) (numbero u))
     (error "Invalid type")))
+
+; (define (start st g)
+;   (match g
+;     ((true) (state->stream st))
+;     ((false) (state->stream #f))
+;     ((disj g1 g2)
+;      (step (mplus (pause st g1)
+;                   (pause st g2))))
+;     ((conj g1 g2)
+;      (step (bind (pause st g1) g2)))
+;     ((relate thunk _)
+;      (pause st (thunk)))
+;     ((== t1 t2) (state->stream (unify t1 t2 st)))
+;     ((=/= t1 t2) (state->stream (disunify t1 t2 st)))
+;     ((symbolo t) (state->stream (typify t symbol? st)))
+;     ((stringo t) (state->stream (typify t string? st)))
+;     ((numbero t) (state->stream (typify t number? st)))
+;     ((not-symbolo t) (state->stream (not-typify t symbol? st)))
+;     ((not-stringo t) (state->stream (not-typify t string? st)))
+;     ((not-numbero t) (state->stream (not-typify t number? st)))
+;     ((imply g1 g2)
+;      (step (mplus (pause st (negate-goal g1))
+;                   (pause st (conj g1 g2)))))
+;     ; ((forallo v (imply g1 g2))
+;     ;  (let ((candidates (step (pause st (conj g1 g2)))))
+;     ;   (if candidates
+;     ;       (error "There are more candidates in the implies")
+;     ;       (error "forall failed, no candidates"))))
+;     ((existo vlst g) (step (pause (extend-scope-multi vlst 'e st) g))) ; TODO change to single variable
+;     ((forallo vlst g)
+;      (let* ((v (first vlst))
+;             (candidates (step (pause st (existo vlst g))))
+;             (can (and candidates (step candidates))) ; TODO this was a hack, still doesn't work
+;             (can (and can (car can)))
+;             (st (extend-scope-multi vlst 'u st)))
+;         (and can
+;              (let* ((v-state (get-constraints can v))
+;                     (v-goal (state->goal v-state)))
+;                 (if (true? v-goal)
+;                     (state->stream can)
+;                     (if (state=? (remove-initial can) v-state)
+;                         (pause st (forallo vlst (conj (negate-goal v-goal) g)))
+;                         (pause st (forallo vlst (imply (negate-goal v-goal) g)))))))))
+;     ))
+
+(define/match (normalize-goal g)
+  (((disj (disj g1 g2) g3))
+    (normalize-goal (disj g1 (disj g2 g3))))
+  (((disj g1 g2))     ;  (disj (disj (conj ...) ...) ...)
+    (let ((norm-g1 (normalize-goal g1)))
+      (if (equal? norm-g1 g1)    ; TODO don't do this
+          (disj norm-g1 (normalize-goal g2))
+          (normalize-goal (disj norm-g1 (normalize-goal g2))))))
+  
+  (((conj (conj g1 g2) g3))
+    (normalize-goal (conj g1 (conj g2 g3))))
+  (((conj (disj g1 g2) g3))
+    (normalize-goal (disj (conj g1 g3) (conj g2 g3))))
+  (((conj g1 g2))
+    (conj (normalize-goal g1) (normalize-goal g2)))
+  ((g) g)
+
+
+    ;  DNF:   (A and B and C) or (D and E and F) or (G and H and I)
+    ;         (disj (list (conj (list A B C)) (conj (list D E F))))
+    ;         (disj (list A B C)) == (conj A B C)
+    ;         (disj (conj A (conj B C)) (disj ,,,))
+    ;  CNF:   (A or B or C) and (D or E or F) and (G or H or I)
+)
 
 (define (start st g)
   (match g

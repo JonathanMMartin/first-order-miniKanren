@@ -10,6 +10,9 @@
   not-stringo
   imply
   forallo
+  normalize-goal
+  disj
+  conj
 
   define-relation
   fresh
