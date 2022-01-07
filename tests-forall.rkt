@@ -21,13 +21,13 @@
   (run 2 (x) (forall (v) (disj (== x 0) (== x 1))))
   '((0) (1)))
 
-(test 'forall-test-5
-  (run 1 (x) (forall (v) (== v 1)))
-  '())
+;(test 'forall-test-5
+;  (run 1 (x) (forall (v) (== v 1)))
+;  '())
 
-(test 'forall-test-6
-  (run 1 (x) (forall (v) (=/= v 1)))
-  '())
+;(test 'forall-test-6
+;  (run 1 (x) (forall (v) (=/= v 1)))
+;  '())
 
 ;(test 'forall-test-7
 ;  (run 1 (x) (forall (v) (disj (== v 1) (=/= v 1))))
@@ -41,13 +41,13 @@
 ;  (run 1 (x) (forall (v) (disj (== v 1) (== x 1))))
 ;  '((1)))
 
-(test 'forall-test-10
-  (run 1 (x) (forall (v) (conj (=/= x x) (== v 1))))
-  '(()))
+;(test 'forall-test-10
+;  (run 1 (x) (forall (v) (conj (=/= x x) (== v 1))))
+;  '(()))
 
-(test 'forall-test-11
-  (run 1 (x) (forall (v) (== x v)))
-  '())
+;(test 'forall-test-11
+;  (run 1 (x) (forall (v) (== x v)))
+;  '())
 
 ;(test 'forall-test-12
 ;  (run 1 (x) (forall (v) (imply (=/= x v) (=/= 1 v))))
