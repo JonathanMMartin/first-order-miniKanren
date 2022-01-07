@@ -142,6 +142,28 @@
 ;; IDEA: have sorted order for terms, ie literal first (== then =/= then typo then not-typo), then conj then forall (or something like that)
 
 (define/match (normalize-goal g)
+  (((==  t1 t2))          (if (equal? t1 t2) (true) g))   ;; TODO: handle case where t1 or t2 are vars, or are lists containing vars.
+  (((=/= t1 t2))          (if (equal? t1 t2) (false) g))  ;; TODO: handle case where t1 or t2 are vars, or are lists containing vars.
+  (((symbolo t))          (if (var? t) g (if (symbol? t) (true) (false))))
+  (((stringo t))          (if (var? t) g (if (string? t) (true) (false))))
+  (((numbero t))          (if (var? t) g (if (number? t) (true) (false))))
+  (((not-symbolo t))      (if (var? t) g (if (symbol? t) (false) (true))))
+  (((not-stringo t))      (if (var? t) g (if (string? t) (false) (true))))
+  (((not-numbero t))      (if (var? t) g (if (number? t) (false) (true))))
+  (((disj (true) _))      (true))
+  (((disj _ (true)))      (true))
+  (((disj (false) g))     (normalize-goal g))
+  (((disj g (false)))     (normalize-goal g))
+  (((conj (true) g))      (normalize-goal g))
+  (((conj g (true)))      (normalize-goal g))
+  (((conj (false) _))     (false))
+  (((conj _ (false)))     (false))
+  (((imply (true) g1))    (normalize-goal g1))
+  (((imply (false) _))    (true))
+  (((existo _ (true)))    (true))
+  (((existo _ (false)))   (false))
+  (((forallo _ (true)))   (true))
+  (((forallo _ (false)))  (false))
   (((disj (disj g1 g2) g3))
     (normalize-goal (disj g1 (disj g2 g3))))
   ;(((disj (conj g1 g2) (conj g3 g4)))
@@ -187,7 +209,7 @@
 )
 
 (define (start st g)
-  (match g
+  (match (normalize-goal g)
     ((true) (state->stream st))
     ((false) (state->stream #f))
     ((disj g1 g2)
