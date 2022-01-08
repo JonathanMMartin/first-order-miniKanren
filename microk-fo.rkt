@@ -142,8 +142,8 @@
 ;; IDEA: have sorted order for terms, ie literal first (== then =/= then typo then not-typo), then conj then forall (or something like that)
 
 (define/match (normalize-goal g)
-  (((==  t1 t2))          (if (equal? t1 t2) (true) g))   ;; TODO: handle case where t1 or t2 are vars, or are lists containing vars.
-  (((=/= t1 t2))          (if (equal? t1 t2) (false) g))  ;; TODO: handle case where t1 or t2 are vars, or are lists containing vars.
+  (((==  t1 t2))          (if (equal? t1 t2) (true) (if (or (contains-fresh? t1) (contains-fresh? t2)) g (false))))
+  (((=/= t1 t2))          (if (equal? t1 t2) (false) (if (or (contains-fresh? t1) (contains-fresh? t2)) g (true))))
   (((symbolo t))          (if (var? t) g (if (symbol? t) (true) (false))))
   (((stringo t))          (if (var? t) g (if (string? t) (true) (false))))
   (((numbero t))          (if (var? t) g (if (number? t) (true) (false))))
@@ -180,11 +180,11 @@
     ;  ((disj h1 h2) (normalize-goal (disj h1 (disj h2 (conj g1 g2)))))
     ;  (h (normalize-goal (disj h (conj g1 g2))))))
   (((disj g1 g2))
-    (let ((g1 (normalize-goal g1))
-          (g2 (normalize-goal g2)))
-      (if (equal? g1 g2)
-          g1
-          (disj g1 g2)))) ;; use sorted order here if g1 < g2, then (disj g1 g2) else (disj g2 g1)
+    (let ((h1 (normalize-goal g1))
+          (h2 (normalize-goal g2)))
+      (if (equal? h1 h2)
+          h1
+          (disj h1 h2)))) ;; use sorted order here if g1 < g2, then (disj g1 g2) else (disj g2 g1)
   
   (((conj (conj g1 g2) g3))
     (normalize-goal (conj g1 (conj g2 g3))))

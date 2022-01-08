@@ -16,7 +16,8 @@
   not-typify
   walk*
   reify
-  reify/initial-var)
+  reify/initial-var
+  contains-fresh?)
 
 (define (foldl/and proc acc lst)
   (if (null? lst)

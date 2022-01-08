@@ -3,7 +3,7 @@
 
 (test 'DNF-basic-0
   (normalize-goal (== 1 2))
-  #s(== 1 2))
+  #s(false))
 
 (test 'DNF-basic-1
   (normalize-goal (conj (== 2 34) (=/= 7 2)))
