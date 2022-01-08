@@ -7,11 +7,11 @@
 
 (test 'DNF-basic-1
   (normalize-goal (conj (== 2 34) (=/= 7 2)))
-  #s(conj #s(== 2 34) #s(=/= 7 2)))
+  #s(false))
 
 (test 'DNF-basic-2
   (normalize-goal (disj (numbero 3) (== 6 10)))
-  #s(disj #s(numbero 3) #s(== 6 10)))
+  #s(true))
 
 (test 'DNF-basic-3
   (normalize-goal (disj 1 1))
@@ -23,19 +23,19 @@
 
 (test 'DNF-test-0
   (normalize-goal (disj (disj (numbero 'a) (symbolo 1)) (== 6 10)))
-  #s(disj #s(numbero a) #s(disj #s(symbolo 1) #s(== 6 10))))
+  #s(false))
 
 (test 'DNF-test-1
   (normalize-goal (conj (conj (not-numbero 21) (symbolo 'l)) (=/= 98 60)))
-  #s(conj #s(not-numbero 21) #s(conj #s(symbolo l) #s(=/= 98 60))))
+  #s(false))
 
 (test 'DNF-test-2
   (normalize-goal (conj (== 1 2) (disj (== 3 4) (== 5 6))))
-  #s(disj #s(conj #s(== 1 2) #s(== 3 4)) #s(conj #s(== 1 2) #s(== 5 6))))
+  #s(false))
 
 (test 'DNF-test-3
   (normalize-goal (disj (conj 1 2) 3))
-  #s(disj 3 #s(conj 1 2)))
+  #s(disj #s(conj 1 2) 3))
 
 (test 'DNF-test-4
   (normalize-goal (disj 3 (conj 1 2)))
@@ -60,3 +60,7 @@
 (test 'DNF-test-9
   (normalize-goal (disj (conj 1 2) (conj 1 2)))
   #s(conj 1 2))
+
+(test 'DNF-test-10
+  (normalize-goal (conj 1 (disj 2 3)))
+  #s(disj #s(conj 1 2) #s(conj 1 3)))
