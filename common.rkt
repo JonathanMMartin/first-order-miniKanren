@@ -17,7 +17,8 @@
   walk*
   reify
   reify/initial-var
-  contains-fresh?)
+  contains-fresh?
+  term-use-var?)
 
 (define (foldl/and proc acc lst)
   (if (null? lst)
@@ -108,6 +109,7 @@
 (define (state->stream state)
   (if state (cons state #f) #f))
 
+;; return true iff st1 is subsumed by st2 (aka st2 guarantees that st1 holds)
 (define (state-subsumed? st1 st2)
   (let* ((sub (state-sub st1))
          (diseq (state-diseq st1))
@@ -315,6 +317,10 @@
     ((pair? v) 1)
     (else 1)))
 
+(define (term-use-var? t v)
+  (if (pair? t)
+      (or (term-use-var? (car t) v) (term-use-var? (cdr t) v))
+      (and (var? t) (var=? t v))))
 (define (contains-fresh? x)
   (if (pair? x)
       (or (contains-fresh? (car x)) (contains-fresh? (cdr x)))

@@ -41,7 +41,7 @@
 (struct not-numbero (t)                  #:prefab)
 (struct imply   (g1 g2)                  #:prefab)
 (struct existo  (vlst g)                 #:prefab)
-(struct forallo (vlst g)                 #:prefab)
+(struct forallo (v g)                 #:prefab)
 (struct bind    (bind-s bind-g)          #:prefab)
 (struct mplus   (mplus-s1 mplus-s2)      #:prefab)
 (struct pause   (pause-state pause-goal) #:prefab)
@@ -66,8 +66,8 @@
     ((not-stringo t) (stringo t))
     ((not-numbero t) (numbero t))
     ((imply g1 g2) (conj g1 (negate-goal g2)))
-    ((existo vlst g) (forallo vlst (negate-goal g)))
-    ((forallo vlst g) (existo vlst (negate-goal g)))
+    ((existo vlst g) (forallo (first vlst) (negate-goal g))) ;; TODO: MAJOR HACK PLS FIX
+    ((forallo v g) (existo (list v) (negate-goal g)))
     (_ (error "unnegateable goal" g))
     ))
 
@@ -95,55 +95,151 @@
     ((eq? type? number?) (numbero u))
     (error "Invalid type")))
 
-; (define (start st g)
-;   (match g
-;     ((true) (state->stream st))
-;     ((false) (state->stream #f))
-;     ((disj g1 g2)
-;      (step (mplus (pause st g1)
-;                   (pause st g2))))
-;     ((conj g1 g2)
-;      (step (bind (pause st g1) g2)))
-;     ((relate thunk _)
-;      (pause st (thunk)))
-;     ((== t1 t2) (state->stream (unify t1 t2 st)))
-;     ((=/= t1 t2) (state->stream (disunify t1 t2 st)))
-;     ((symbolo t) (state->stream (typify t symbol? st)))
-;     ((stringo t) (state->stream (typify t string? st)))
-;     ((numbero t) (state->stream (typify t number? st)))
-;     ((not-symbolo t) (state->stream (not-typify t symbol? st)))
-;     ((not-stringo t) (state->stream (not-typify t string? st)))
-;     ((not-numbero t) (state->stream (not-typify t number? st)))
-;     ((imply g1 g2)
-;      (step (mplus (pause st (negate-goal g1))
-;                   (pause st (conj g1 g2)))))
-;     ; ((forallo v (imply g1 g2))
-;     ;  (let ((candidates (step (pause st (conj g1 g2)))))
-;     ;   (if candidates
-;     ;       (error "There are more candidates in the implies")
-;     ;       (error "forall failed, no candidates"))))
-;     ((existo vlst g) (step (pause (extend-scope-multi vlst 'e st) g))) ; TODO change to single variable
-;     ((forallo vlst g)
-;      (let* ((v (first vlst))
-;             (candidates (step (pause st (existo vlst g))))
-;             (can (and candidates (step candidates))) ; TODO this was a hack, still doesn't work
-;             (can (and can (car can)))
-;             (st (extend-scope-multi vlst 'u st)))
-;         (and can
-;              (let* ((v-state (get-constraints can v))
-;                     (v-goal (state->goal v-state)))
-;                 (if (true? v-goal)
-;                     (state->stream can)
-;                     (if (state=? (remove-initial can) v-state)
-;                         (pause st (forallo vlst (conj (negate-goal v-goal) g)))
-;                         (pause st (forallo vlst (imply (negate-goal v-goal) g)))))))))
-;     ))
+(define (goal-use-var? g v)
+  (match g
+    ((true)  #f)
+    ((false) #f)
+    ((conj g1 g2) (or (goal-use-var? g1 v) (goal-use-var? g2 v)))
+    ((disj g1 g2) (or (goal-use-var? g1 v) (goal-use-var? g2 v)))
+    ((== t1 t2) (or (term-use-var? t1 v) (term-use-var? t2 v)))
+    ((=/= t1 t2) (or (term-use-var? t1 v) (term-use-var? t2 v)))
+    ((symbolo t) (term-use-var? t v))
+    ((stringo t) (term-use-var? t v))
+    ((numbero t) (term-use-var? t v))
+    ((not-symbolo t) (term-use-var? t v))
+    ((not-stringo t) (term-use-var? t v))
+    ((not-numbero t) (term-use-var? t v))
+    ((imply g1 g2) (or (goal-use-var? g1 v) (goal-use-var? g2 v)))
+    ((existo xlst g) (goal-use-var? g v))
+    ((forallo x g) (goal-use-var? g v))
+    (_ (error "can't check goal" g))
+    ))
 
 ;; IDEA: have sorted order for terms, ie literal first (== then =/= then typo then not-typo), then conj then forall (or something like that)
 
+(define (normalize-goal-forall v g)
+  (match (normalize-goal g)
+    ((false) (false))
+    ((true) (true))
+    ((== t1 t2) (if (or (term-use-var? t1 v) (term-use-var? t2 v))
+                    (false)
+                    (== t1 t2)))
+    ((=/= t1 t2) (if (or (term-use-var? t1 v) (term-use-var? t2 v))
+                    (false)
+                    (=/= t1 t2)))
+    ((symbolo t) (if (term-use-var? t v)
+                     (false)
+                     (symbolo t)))
+    ((stringo t) (if (term-use-var? t v)
+                     (false)
+                     (stringo t)))
+    ((numbero t) (if (term-use-var? t v)
+                     (false)
+                     (numbero t)))
+    ((not-symbolo t) (if (term-use-var? t v)
+                     (false)
+                     (not-symbolo t)))
+    ((not-stringo t) (if (term-use-var? t v)
+                     (false)
+                     (not-stringo t)))
+    ((not-numbero t) (if (term-use-var? t v)
+                     (false)
+                     (not-numbero t)))
+    ((disj g1 g2) (let* ((g1 (normalize-goal g1))
+                         (g2 (normalize-goal g2))
+                         (g1-v? (goal-use-var? g1 v))
+                         (g2-v? (goal-use-var? g2 v)))
+                    (cond
+                      ((and (not g1-v?) (not g2-v?)) (disj g1 g2))
+                      ((not g1-v?) (normalize-goal (disj g1 (forallo v g2))))
+                      ((not g2-v?) (normalize-goal (disj g2 (forallo v g1))))
+                      (else (forallo v (disj g1 g2))))))
+    ((conj g1 g2) (let* ((g1 (normalize-goal g1))
+                         (g2 (normalize-goal g2))
+                         (g1-v? (goal-use-var? g1 v))
+                         (g2-v? (goal-use-var? g2 v)))
+                    (cond
+                      ((and (not g1-v?) (not g2-v?)) (conj g1 g2))
+                      ((not g1-v?) (normalize-goal (conj g1 (forallo v g2))))
+                      ((not g2-v?) (normalize-goal (conj g2 (forallo v g1))))
+                      (else (forallo v (conj g1 g2))))))
+    ))
+
+(define (vacuous-disj-conj? g negated-first-goal)
+  (match g
+    ((disj g1 g2) (or (equal? g1 negated-first-goal) (vacuous-disj-conj? g2 negated-first-goal)))
+    ((conj g1 g2) (or (equal? g1 negated-first-goal) (vacuous-disj-conj? g2 negated-first-goal)))
+    (h (equal? h negated-first-goal))))
+
+;; g1 guarantees a single goal g2 holds
+;; g1 must be normalized conj
+(define (conj-subsumes-single g1 g2)
+  (match g1
+    ((conj h1 h2) (or (equal? h1 g2) (conj-subsumes-single h2 g2)))
+    (h (equal? h g2))))
+
+;; g1 guarantees all goals in g2 hold
+;; g1 and g2 must be normalized conjs
+(define (conj-subsumes g1 g2)
+  (match g2
+    ((conj h1 h2) (and (conj-subsumes-single g1 h1) (conj-subsumes g1 h2)))
+    (h (conj-subsumes-single g1 h))))
+
+;; substitute v with term t everywhere in g
+(define (substitute-term g v term)
+  (match g
+    ((true)  (true))
+    ((false) (false))
+    ((conj g1 g2) (conj (substitute-term g1 v term) (substitute-term g2 v term)))
+    ((disj g1 g2) (disj (substitute-term g1 v term) (substitute-term g2 v term)))
+    ((== t1 t2) (cond
+                  ((equal? t1 v) (== term t2))
+                  ((equal? t2 v) (== t1 term))
+                  (else (== t1 t2))))
+    ((=/= t1 t2) (cond
+                  ((equal? t1 v) (=/= term t2))
+                  ((equal? t2 v) (=/= t1 term))
+                  (else (=/= t1 t2))))
+    ((symbolo t) (symbolo (if (equal? t v) term t)))
+    ((stringo t) (stringo (if (equal? t v) term t)))
+    ((numbero t) (numbero (if (equal? t v) term t)))
+    ((not-symbolo t) (not-symbolo (if (equal? t v) term t)))
+    ((not-stringo t) (not-stringo (if (equal? t v) term t)))
+    ((not-numbero t) (not-numbero (if (equal? t v) term t)))
+    ((imply g1 g2) (imply (substitute-term g1 v term) (substitute-term g2 v term)))
+    ((existo xlst g) (existo xlst (substitute-term g v term)))
+    ((forallo x g) (forallo x (substitute-term g v term)))
+    (_ (error "couldn't parse goal" g))
+    ))
+
 (define/match (normalize-goal g)
-  (((==  t1 t2))          (if (equal? t1 t2) (true) (if (or (contains-fresh? t1) (contains-fresh? t2)) g (false))))
-  (((=/= t1 t2))          (if (equal? t1 t2) (false) (if (or (contains-fresh? t1) (contains-fresh? t2)) g (true))))
+
+  ;; remove lists/pairs
+  ; (((== (cons f1 r1) (cons f2 r2))) (normalize-goal (conj (== f1 f2) (== r1 r2))))
+  ; (((== (cons f1 r1) t2)) (if (var? t2) (== (cons f1 r1) t2) (false)))
+  ; (((== t1 (cons f2 r2))) (if (var? t1) (== (cons f2 r2) t1) (false)))
+  
+  ; (((=/= (cons f1 r1) (cons f2 r2))) (normalize-goal (disj (=/= f1 f2) (=/= r1 r2))))
+  ; (((=/= (cons f1 r1) t2)) (if (var? t2) (=/= (cons f1 r1) t2) (false)))
+  ; (((=/= t1 (cons f2 r2))) (if (var? t1) (=/= (cons f2 r2) t1) (false)))
+
+  ;; basic things
+  (((== t1 t2))           (cond
+                            ((equal? t1 t2) (true))
+                            ((and (var? t1) (var? t2)) (if (< (var-index t1) (var-index t2)) (== t1 t2) (== t2 t1)))
+                            ((var? t2) (== t1 t2))
+                            ((var? t1) (== t2 t1))
+                            ((contains-fresh? t2) (== t1 t2))
+                            ((contains-fresh? t1) (== t2 t1))
+                            (else (false))))
+  (((=/= t1 t2))          (cond
+                            ((equal? t1 t2) (false))
+                            ((and (var? t1) (var? t2)) (if (< (var-index t1) (var-index t2)) (=/= t1 t2) (=/= t2 t1)))
+                            ((var? t2) (=/= t1 t2))
+                            ((var? t1) (=/= t2 t1))
+                            ((contains-fresh? t2) (=/= t1 t2))
+                            ((contains-fresh? t1) (=/= t2 t1))
+                            (else (true))))
   (((symbolo t))          (if (var? t) g (if (symbol? t) (true) (false))))
   (((stringo t))          (if (var? t) g (if (string? t) (true) (false))))
   (((numbero t))          (if (var? t) g (if (number? t) (true) (false))))
@@ -164,17 +260,30 @@
   (((existo _ (false)))   (false))
   (((forallo _ (true)))   (true))
   (((forallo _ (false)))  (false))
+
+  ;; imply => disj
+  (((imply g1 g2)) (normalize-goal (disj (negate-goal g1) g2)))
+
+  (((existo vlst g)) (existo vlst (normalize-goal g)))
+  
+  ;; DNF for disj
   (((disj (disj g1 g2) g3))
     (normalize-goal (disj g1 (disj g2 g3))))
-  (((disj g1 g2))
+  (((disj g1 g2)) ;; use sorted order here if g1 < g2, then (disj g1 g2) else (disj g2 g1)
     (let ((h1 (normalize-goal g1))
           (h2 (normalize-goal g2)))
       (cond ((equal? h1 h2) h1)
-            ((and (equal? g1 h1) (equal? g2 h2)) (disj h1 h2)) ;; use sorted order here if g1 < g2, then (disj g1 g2) else (disj g2 g1)
+            ; ((equal? h1 (negate-goal h2)) (true))
+            ((and (equal? g1 h1) (equal? g2 h2)) (cond
+                                                   ((vacuous-disj-conj? h2 (negate-goal h1)) (true))
+                                                   ((and (conj? h1) (conj? h2) (conj-subsumes h1 h2)) (normalize-goal h2))
+                                                   ((and (conj? h1) (conj? h2) (conj-subsumes h2 h1)) (normalize-goal h1))
+                                                   (else (disj h1 h2))))
             ;((and (equal? g1 h1) (equal? g2 h2)) (if (goal<? h1 h2) (disj h1 h2) (disj h2 h1)))
             (else (normalize-goal (disj h1 h2))))))
             ;(else (if (goal<? h1 h2) (normalize-goal (disj h1 h2)) (normalize-goal (disj h2 h1)))))))
   
+  ;; DNF for conj
   (((conj (conj g1 g2) g3))
     (normalize-goal (conj g1 (conj g2 g3))))
   (((conj (disj g1 g2) g3))
@@ -185,19 +294,24 @@
     (let ((h1 (normalize-goal g1))
           (h2 (normalize-goal g2)))
       (cond ((equal? h1 h2) h1)
-            ((and (equal? g1 h1) (equal? g2 h2)) (conj h1 h2)) ;; use sorted order here if g1 < g2, then (disj g1 g2) else (disj g2 g1)
+            ((and (equal? g1 h1) (equal? g2 h2)) (cond
+                                                   ((vacuous-disj-conj? h2 (negate-goal h1)) (false))
+                                                   ((and (conj? h2) (==? (conj-g1 h2)) (not (contains-fresh? (==-t1 (conj-g1 h2)))) (or (not (==? h1)) (contains-fresh? (==-t1 h1))))
+                                                     (normalize-goal (conj h2 h1)))
+                                                   ((and (==? h1) (not (contains-fresh? (==-t1 h1))))
+                                                     (let ((h3 (substitute-term h2 (==-t2 h1) (==-t1 h1))))
+                                                       (if (equal? h3 h2) (conj h1 h2) (normalize-goal (conj h1 h3)))))
+                                                   (else (conj h1 h2)))) ;; use sorted order here if g1 < g2, then (disj g1 g2) else (disj g2 g1)
             ;((and (equal? g1 h1) (equal? g2 h2)) (if (goal<? h1 h2) (conj h1 h2) (conj h2 h1)))
             (else (normalize-goal (conj h1 h2))))))
             ;(else (if (goal<? h1 h2) (normalize-goal (conj h1 h2)) (normalize-goal (conj h2 h1)))))))
-  ((g) g)
+  
+  ;; forall rules
+  (((forallo v g))
+    (normalize-goal-forall v g))
 
-
-    ;  DNF:   (A and B and C) or (D and E and F) or (G and H and I)
-    ;         (disj (list (conj (list A B C)) (conj (list D E F))))
-    ;         (disj (list A B C)) == (conj A B C)
-    ;         (disj (conj A (conj B C)) (disj ,,,))
-    ;  CNF:   (A or B or C) and (D or E or F) and (G or H or I)
-)
+  ;; no simplifications
+  ((g) g))
 
 (define (start st g)
   (match (normalize-goal g)
@@ -221,26 +335,8 @@
     ((imply g1 g2)
      (step (mplus (pause st (negate-goal g1))
                   (pause st (conj g1 g2)))))
-    ; ((forallo v (imply g1 g2))
-    ;  (let ((candidates (step (pause st (conj g1 g2)))))
-    ;   (if candidates
-    ;       (error "There are more candidates in the implies")
-    ;       (error "forall failed, no candidates"))))
     ((existo vlst g) (step (pause (extend-scope-multi vlst 'e st) g))) ; TODO change to single variable
-    ((forallo vlst g)
-     (let* ((v (first vlst))
-            (candidates (step (pause st (existo vlst g))))
-            (can (and candidates (step candidates))) ; TODO this was a hack, still doesn't work
-            (can (and can (car can)))
-            (st (extend-scope-multi vlst 'u st)))
-        (and can
-             (let* ((v-state (get-constraints can v))
-                    (v-goal (state->goal v-state)))
-                (if (true? v-goal)
-                    (state->stream can)
-                    (if (state=? (remove-initial can) v-state)
-                        (pause st (forallo vlst (conj (negate-goal v-goal) g)))
-                        (pause st (forallo vlst (imply (negate-goal v-goal) g)))))))))
+    ((forallo v g) (error "not enough rules: forall"))
     ))
 
 (define (step s)

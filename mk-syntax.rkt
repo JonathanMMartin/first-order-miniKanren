@@ -27,8 +27,8 @@
      (disj* (conj* g gs ...) (conj* h hs ...) ...))))
 (define-syntax forall
   (syntax-rules ()
-    ((_ (x ...) g0 gs ...)
-      (let ((x (var/new 'x)) ...) (forallo (list x ...) (conj* g0 gs ...)))))) ;; TODO we need to distinguish between existential and universal variables as some point with scoping
+    ((_ (x) g0 gs ...)
+      (let ((x (var/new 'x))) (forallo x (conj* g0 gs ...)))))) ;; TODO we need to distinguish between existential and universal variables as some point with scoping
 ;; Queries
 (define-syntax query
   (syntax-rules ()

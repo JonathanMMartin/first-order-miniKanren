@@ -13,6 +13,7 @@
   normalize-goal
   disj
   conj
+  var
 
   define-relation
   fresh
