@@ -3,7 +3,7 @@
 
 (test 'implication-1
   (run* (x) (imply (== x 1) (=/= x 2)))
-  '(#s(Ans (_.0) ((=/= ((_.0 1))))) #s(Ans (_.0) ((=/= ((_.0 2)))))))
+  '((_.0)))
 
 (test 'implication-2
   (run* (x) (imply (=/= x 1) (== x 2)))

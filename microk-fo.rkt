@@ -158,7 +158,6 @@
                       ((and no-v-in-g1? no-v-in-g2?) (disj g1 g2))
                       (no-v-in-g1? (normalize-goal (disj g1 (forallo v g2))))
                       (no-v-in-g2? (normalize-goal (disj g2 (forallo v g1))))
-                      ((=/=? g1) (normalize-goal (forallo v (negate-goal (normalize-goal (negate-goal (disj g1 g2)))))))
                       (else (forallo v (disj g1 g2))))))
     ((conj g1 g2) (let* ((no-v-in-g1? (not (goal-use-var? g1 v)))
                          (no-v-in-g2? (not (goal-use-var? g2 v))))
@@ -272,7 +271,7 @@
 (define/match (normalize-goal g)
 
   ;; remove lists/pairs
-  ; (((== (cons f1 r1) (cons f2 r2))) (normalize-goal (conj (== f1 f2) (== r1 r2))))
+  (((== (cons f1 r1) (cons f2 r2))) (normalize-goal (conj (== f1 f2) (== r1 r2))))
   ; (((== (cons f1 r1) t2)) (if (var? t2) (== (cons f1 r1) t2) (false)))
   ; (((== t1 (cons f2 r2))) (if (var? t1) (== (cons f2 r2) t1) (false)))
   
@@ -336,6 +335,8 @@
                   (normalize-goal (disj h2 h1)))
                 ((and (conj? h1) (conj? h2) (conj-subsumes h1 h2)) (normalize-goal h2))
                 ((and (conj? h1) (conj? h2) (conj-subsumes h2 h1)) (normalize-goal h1))
+                ((and (=/=? h1) (var? (=/=-t2 h1)) (goal-use-var? h2 (=/=-t2 h1)))
+                  (normalize-goal (negate-goal (normalize-goal (negate-goal (disj h1 h2))))))
                 (else (disj h1 h2))))
             (else (normalize-goal (disj h1 h2))))))
 
@@ -365,7 +366,7 @@
             (else (normalize-goal (conj h1 h2))))))
   
   ;; (imply A B) => (disj ~A B)
-  (((imply g1 g2)) (normalize-goal (disj (negate-goal g1) g2)))
+  (((imply g1 g2)) (normalize-goal (disj (negate-goal (normalize-goal g1)) g2)))
 
   ;; exists rules
   (((existo v g)) 
