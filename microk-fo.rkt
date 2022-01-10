@@ -329,9 +329,8 @@
             ((and (equal? g1 h1) (equal? g2 h2)) 
               (cond
                 ((vacuous-disj-conj? h2 (negate-goal h1)) (true))
-                ((and (or (not (=/=? h1)) (contains-fresh? (=/=-t1 h1))) 
-                      (or (and (=/=? h2) (not (contains-fresh? (=/=-t1 h2)))) 
-                          (and (disj? h2) (=/=? (disj-g1 h2)) (not (contains-fresh? (=/=-t1 (disj-g1 h2)))))))
+                ((and (not (=/=? h1)) 
+                      (or (=/=? h2) (and (disj? h2) (=/=? (disj-g1 h2))))) 
                   (normalize-goal (disj h2 h1)))
                 ((and (conj? h1) (conj? h2) (conj-subsumes h1 h2)) (normalize-goal h2))
                 ((and (conj? h1) (conj? h2) (conj-subsumes h2 h1)) (normalize-goal h1))
@@ -356,9 +355,8 @@
             ((and (equal? g1 h1) (equal? g2 h2)) 
               (cond
                 ((vacuous-disj-conj? h2 (negate-goal h1)) (false))
-                ((and (or (not (==? h1)) (contains-fresh? (==-t1 h1))) 
-                      (or (and (==? h2) (not (contains-fresh? (==-t1 h2)))) 
-                          (and (conj? h2) (==? (conj-g1 h2)) (not (contains-fresh? (==-t1 (conj-g1 h2)))))))
+                ((and (not (==? h1)) 
+                      (or (==? h2) (and (conj? h2) (==? (conj-g1 h2))))) 
                   (normalize-goal (conj h2 h1)))
                 ((==? h1) (let ((h3 (substitute-term h2 (==-t2 h1) (==-t1 h1))))
                             (if (equal? h3 h2) (conj h1 h2) (normalize-goal (conj h1 h3)))))
