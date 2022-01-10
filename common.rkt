@@ -8,7 +8,7 @@
   state->stream
   state=?
   remove-initial
-  extend-scope-multi
+  add-to-scope
   get-constraints
   unify
   disunify
@@ -61,15 +61,13 @@
   (let* ((xt (assf (lambda (x) (var=? t x)) not-types)))
     (and xt (cdr xt))))
 
-(define (extend-scope-multi vlst s st)
-  (if (null? vlst)
-      st
-      (let ((scope (state-scope st))
-            (sub (state-sub st))
-            (diseq (state-diseq st))
-            (types (state-types st))
-            (not-types (state-not-types st)))
-        (extend-scope-multi (rest vlst) s (state (extend-scope (first vlst) s scope) sub diseq types not-types)))))
+(define (add-to-scope var s st)
+  (let ((scope (state-scope st))
+        (sub (state-sub st))
+        (diseq (state-diseq st))
+        (types (state-types st))
+        (not-types (state-not-types st)))
+    (state (extend-scope var s scope) sub diseq types not-types)))
 
 (define (extend-scope var s scope)
   (cons (cons var s) scope))

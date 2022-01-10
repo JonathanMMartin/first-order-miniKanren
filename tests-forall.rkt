@@ -54,13 +54,29 @@
  '())
 
 (test 'forall-test-13
+ (run 1 (x) (forall (v) (== v x)))
+ '())
+
+(test 'forall-test-14
+ (run 1 (x) (forall (v) (=/= x v)))
+ '())
+
+(test 'forall-test-15
+ (run 1 (x) (forall (v) (=/= v x)))
+ '())
+
+(test 'forall-test-16
  (run 1 (x) (forall (v) (disj (== v 1) (imply (== v 1) (== 2 3)))))
  '((_.0)))
 
-(test 'forall-test-14
+(test 'forall-test-17
  (run 1 (x) (forall (v) (disj (== v 1) (disj (numbero v) (imply (== v 1) (== 2 3))))))
  '((_.0)))
 
-; (test 'forall-test-15
-;  (run 1 (x) (forall (v) (imply (=/= x v) (=/= 1 v))))
-;  '(1))
+(test 'forall-test-18
+  (run 1 (x) (forall (v) (imply (=/= x v) (=/= 1 v))))
+  '((1)))
+
+(test 'forall-test-19
+  (run 1 (x) (forall (v) (imply (== x v) (== v 1))))
+  '((1)))

@@ -19,16 +19,24 @@
 ;; High level goals
 (define-syntax fresh
   (syntax-rules ()
-    ((_ (x ...) g0 gs ...)
-     (let ((x (var/new 'x)) ...) (existo (list x ...) (conj* g0 gs ...))))))
+    ((_ () g0 gs ...)
+      (conj* g0 gs ...))
+    ((_ (x) g0 gs ...)
+      (let ((x (var/new 'x))) (existo x (conj* g0 gs ...))))
+    ((_ (x xs ...) g0 gs ...)
+     (let ((x (var/new 'x))) (existo x (fresh (xs ...) g0 gs ...))))))
 (define-syntax conde
   (syntax-rules ()
     ((_ (g gs ...) (h hs ...) ...)
      (disj* (conj* g gs ...) (conj* h hs ...) ...))))
 (define-syntax forall
   (syntax-rules ()
+    ((_ () g0 gs ...)
+      (conj* g0 gs ...))
     ((_ (x) g0 gs ...)
-      (let ((x (var/new 'x))) (forallo x (conj* g0 gs ...)))))) ;; TODO we need to distinguish between existential and universal variables as some point with scoping
+      (let ((x (var/new 'x))) (forallo x (conj* g0 gs ...))))
+    ((_ (x xs ...) g0 gs ...)
+      (let ((x (var/new 'x))) (forallo x (forall (xs ...) g0 gs ...)))))) ;; TODO we need to distinguish between existential and universal variables as some point with scoping
 ;; Queries
 (define-syntax query
   (syntax-rules ()
