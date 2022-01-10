@@ -36,7 +36,7 @@
     ((_ (x) g0 gs ...)
       (let ((x (var/new 'x))) (forallo x (conj* g0 gs ...))))
     ((_ (x xs ...) g0 gs ...)
-      (let ((x (var/new 'x))) (forallo x (forall (xs ...) g0 gs ...)))))) ;; TODO we need to distinguish between existential and universal variables as some point with scoping
+      (let ((x (var/new 'x))) (forallo x (forall (xs ...) g0 gs ...))))))
 ;; Queries
 (define-syntax query
   (syntax-rules ()
