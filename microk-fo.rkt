@@ -319,21 +319,21 @@
   
   ;; DNF for disj
   (((disj (disj g1 g2) g3))
-    (normalize-goal (disj g1 (disj g2 g3))))
+    (normalize-goal (disj g1 (disj g2 g3))))          ;; (A or B) or C = A or (B or C)
   
   ;; Main disj rules
   (((disj g1 g2))
     (let ((h1 (normalize-goal g1))
           (h2 (normalize-goal g2)))
-      (cond ((equal? h1 h2) h1)
+      (cond ((equal? h1 h2) h1)     ;; A or A = A
             ((and (equal? g1 h1) (equal? g2 h2)) 
               (cond
-                ((vacuous-disj-conj? h2 (negate-goal h1)) (true))
+                ((vacuous-disj-conj? h2 (negate-goal h1)) (true))     ;; A or ~A = True
                 ((and (not (=/=? h1)) 
                       (or (=/=? h2) (and (disj? h2) (=/=? (disj-g1 h2))))) 
-                  (normalize-goal (disj h2 h1)))
-                ((and (conj? h1) (conj? h2) (conj-subsumes h1 h2)) (normalize-goal h2))
-                ((and (conj? h1) (conj? h2) (conj-subsumes h2 h1)) (normalize-goal h1))
+                  (normalize-goal (disj h2 h1)))                      ;; A or (x =/= y) = (x =/= y) or A
+                ((and (conj? h1) (conj? h2) (conj-subsumes h1 h2)) (normalize-goal h2))   ;; (A and B and C) or (A and B) = A and B
+                ((and (conj? h1) (conj? h2) (conj-subsumes h2 h1)) (normalize-goal h1))   ;; (A and B) or (A and B and C) = A and B
                 ((and (=/=? h1) (var? (=/=-t2 h1)) (goal-use-var? h2 (=/=-t2 h1)))
                   (normalize-goal (negate-goal (normalize-goal (negate-goal (disj h1 h2))))))
                 (else (disj h1 h2))))
@@ -341,23 +341,23 @@
 
   ;; DNF for conj
   (((conj (conj g1 g2) g3))
-    (normalize-goal (conj g1 (conj g2 g3))))
+    (normalize-goal (conj g1 (conj g2 g3))))            ;; (A and B) and C = A and (B and C) 
   (((conj (disj g1 g2) g3))
-    (normalize-goal (disj (conj g1 g3) (conj g2 g3))))
+    (normalize-goal (disj (conj g1 g3) (conj g2 g3))))  ;; (A or B) and C  = (A and C) or (B and C)
   (((conj g1 (disj g2 g3)))
-    (normalize-goal (disj (conj g1 g2) (conj g1 g3))))
+    (normalize-goal (disj (conj g1 g2) (conj g1 g3))))  ;; A and (B or C)  = (A and B) or (A and C)
   
   ;; Main conj rules
   (((conj g1 g2))
     (let ((h1 (normalize-goal g1))
           (h2 (normalize-goal g2)))
-      (cond ((equal? h1 h2) h1)
+      (cond ((equal? h1 h2) h1)     ;; A and A = A
             ((and (equal? g1 h1) (equal? g2 h2)) 
               (cond
-                ((vacuous-disj-conj? h2 (negate-goal h1)) (false))
+                ((vacuous-disj-conj? h2 (negate-goal h1)) (false))  ;; A and ~A = False
                 ((and (not (==? h1)) 
                       (or (==? h2) (and (conj? h2) (==? (conj-g1 h2))))) 
-                  (normalize-goal (conj h2 h1)))
+                  (normalize-goal (conj h2 h1)))                    ;; A and (x == y) = (x == y) and A
                 ((==? h1) (let ((h3 (substitute-term h2 (==-t2 h1) (==-t1 h1))))
                             (if (equal? h3 h2) (conj h1 h2) (normalize-goal (conj h1 h3)))))
                 (else (conj h1 h2))))
