@@ -1,6 +1,8 @@
 #lang racket
 (provide
   (all-from-out "common.rkt")
+  true
+  false
   disj
   conj
   relate
@@ -13,6 +15,8 @@
   not-stringo
   not-numbero
 
+  existo
+
   mplus
   bind
   pause
@@ -20,9 +24,34 @@
   mature
   mature?)
 
+
 (require "common.rkt")
 
 ;; higher-order microKanren
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -45,24 +74,8 @@
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+(define (true) (lambda (st) (state->stream st)))
+(define (false) (lambda (st) (state->stream #f)))
 (define (disj g1 g2)
   (lambda (st) (mplus (pause st g1)
                       (pause st g2))))
@@ -78,6 +91,9 @@
 (define (not-symbolo t) (lambda (st) (state->stream (not-typify t symbol? st))))
 (define (not-stringo t) (lambda (st) (state->stream (not-typify t string? st))))
 (define (not-numbero t) (lambda (st) (state->stream (not-typify t number? st))))
+
+(define (existo v g) (lambda (st) (pause (add-to-scope v 'e st) g)))
+
 
 
 
