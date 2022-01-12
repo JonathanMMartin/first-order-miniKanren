@@ -92,10 +92,10 @@
 (define (not-stringo t) (lambda (st) (state->stream (not-typify t string? st))))
 (define (not-numbero t) (lambda (st) (state->stream (not-typify t number? st))))
 
+
+
 (define (existo v g) (lambda (st) (pause (add-to-scope v 'e st) g)))
-
-
-
+(define (forallo v g) (lambda (st) (error "Higher order miniKanren cannot solve forall queries")))
 
 
 
