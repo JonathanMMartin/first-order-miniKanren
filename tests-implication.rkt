@@ -11,11 +11,11 @@
 
 (test 'implication-3
   (run* (x) (imply (numbero x) (== x 501)))
-  '(#s(Ans (_.0) ((not-types (_.0 num)))) (501)))
+  '((501) #s(Ans (_.0) ((not-types (_.0 num))))))
 
 (test 'implication-4
   (run* (x) (imply (numbero x) (not-symbolo x)))
-  '(#s(Ans (_.0) ((not-types (_.0 num)))) #s(Ans (_.0) ((not-types (_.0 sym))))))
+  '((_.0)))
 
 (test 'implication-type-constraint-1
   (run* (x) (imply (=/= x 1) (numbero x)))

@@ -96,3 +96,47 @@
 (test 'forall-multi-var-2
    (run 1 (x) (forall (v w) (disj (conj (== x v) (== x w)) (=/= v w))))
    '())
+
+(test 'forall-exists-0
+   (run 1 (x) (forall (v) (fresh (u) (== v 1))))
+   '())
+
+(test 'forall-exists-1
+   (run 1 (x) (forall (v) (fresh (u) (== u 1))))
+   '((_.0)))
+
+(test 'forall-exists-2
+   (run 1 (x) (fresh (v) (forall (u) (== v u))))
+   '())
+
+(test 'forall-exists-3
+   (run 1 (x) (fresh (v) (forall (u) (=/= v u))))
+   '())
+
+(test 'forall-exists-4
+   (run 1 (x) (forall (v) (fresh (u) (=/= v u))))
+   '((_.0)))
+
+(test 'forall-exists-5
+   (run 1 (x) (forall (v) (fresh (u) (== v u))))
+   '((_.0)))
+
+(test 'forall-disj-0
+   (run 1 (x) (forall (v) (disj (numbero v) (=/= v 1))))
+   '((_.0)))
+
+(test 'forall-disj-1
+   (run 1 (x) (forall (v) (disj (symbolo v) (numbero v))))
+   '())
+
+(test 'forall-forall-0
+   (run 1 (x) (forall (v) (forall (u) (== v u))))
+   '())
+
+(test 'forall-forall-1
+   (run 1 (x) (forall (v) (forall (u) (=/= v u))))
+   '())
+
+(test 'forall-forall-imply-0
+   (run 1 (v) (forall (x) (forall (y) (imply (conj (numbero x) (symbolo y)) (=/= x y)))))
+   '((_.0)))

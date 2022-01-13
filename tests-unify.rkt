@@ -35,7 +35,7 @@
 
 (test 'equality-with-conde-0
   (run* (q) (conde ((== 4 q)) ((== 1 q))))
-  '((4) (1)))
+  '((1) (4)))
 
 (test 'equality-with-conde-1
   (run* (p q) (== 9 p) (conde ((== 7 q)) ((== 8 q))))
