@@ -17,8 +17,10 @@
   walk*
   reify
   reify/initial-var
-  contains-fresh?
-  term-use-var?)
+  term-use-var?
+  term<?
+  term-compare
+  contains-fresh?)
 
 (define (foldl/and proc acc lst)
   (if (null? lst)
@@ -313,7 +315,9 @@
                          compared-cars))
                    -1))
     ((pair? v) 1)
-    (else 1)))
+    ((var? u) (if (var? v) (if (< (var-index u) (var-index v)) -1 1) -1))
+    ((var? v) 1)
+    (else 0)))
 
 (define (term-use-var? t v)
   (if (pair? t)

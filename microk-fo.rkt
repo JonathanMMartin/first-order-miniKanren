@@ -117,148 +117,172 @@
     ((pause st g) (start st g))
     (_            s)))
 
-(define/match (normalize-goal g)
+(define (normalize-goal g)
+  (match g
+    ;; remove lists/pairs
+    ((== (cons f1 r1) (cons f2 r2)) (normalize-goal (conj (== f1 f2) (== r1 r2))))
+    ; ((== (cons f1 r1) t2) (if (var? t2) (== (cons f1 r1) t2) (false)))
+    ; ((== t1 (cons f2 r2)) (if (var? t1) (== (cons f2 r2) t1) (false)))
+    
+    ; ((=/= (cons f1 r1) (cons f2 r2)) (normalize-goal (disj (=/= f1 f2) (=/= r1 r2))))
+    ; ((=/= (cons f1 r1) t2) (if (var? t2) (=/= (cons f1 r1) t2) (false)))
+    ; ((=/= t1 (cons f2 r2)) (if (var? t1) (=/= (cons f2 r2) t1) (false)))
 
-  ;; remove lists/pairs
-  (((== (cons f1 r1) (cons f2 r2))) (normalize-goal (conj (== f1 f2) (== r1 r2))))
-  ; (((== (cons f1 r1) t2)) (if (var? t2) (== (cons f1 r1) t2) (false)))
-  ; (((== t1 (cons f2 r2))) (if (var? t1) (== (cons f2 r2) t1) (false)))
-  
-  ; (((=/= (cons f1 r1) (cons f2 r2))) (normalize-goal (disj (=/= f1 f2) (=/= r1 r2))))
-  ; (((=/= (cons f1 r1) t2)) (if (var? t2) (=/= (cons f1 r1) t2) (false)))
-  ; (((=/= t1 (cons f2 r2))) (if (var? t1) (=/= (cons f2 r2) t1) (false)))
+    ;; basic things
+    ((== t1 t2)             (cond
+                              ((equal? t1 t2) (true))
+                              ((and (var? t1) (term-use-var? t2 t1) (not (var? t2))) (false))
+                              ((and (var? t2) (term-use-var? t1 t2) (not (var? t1))) (false))
+                              ((and (or (contains-fresh? t1) (contains-fresh? t2)) (term<? t1 t2)) (== t1 t2))
+                              ((or (contains-fresh? t1) (contains-fresh? t2)) (== t2 t1))
+                              (else (false))))
+    ((=/= t1 t2)            (cond
+                              ((equal? t1 t2) (false))
+                              ((and (var? t1) (term-use-var? t2 t1) (not (var? t2))) (true))
+                              ((and (var? t2) (term-use-var? t1 t2) (not (var? t1))) (true))
+                              ((and (or (contains-fresh? t1) (contains-fresh? t2)) (term<? t1 t2)) (=/= t1 t2))
+                              ((or (contains-fresh? t1) (contains-fresh? t2)) (=/= t2 t1))
+                              (else (true))))
+    ((symbolo t)            (if (var? t) g (if (symbol? t) (true) (false))))
+    ((stringo t)            (if (var? t) g (if (string? t) (true) (false))))
+    ((numbero t)            (if (var? t) g (if (number? t) (true) (false))))
+    ((not-symbolo t)        (if (var? t) g (if (symbol? t) (false) (true))))
+    ((not-stringo t)        (if (var? t) g (if (string? t) (false) (true))))
+    ((not-numbero t)        (if (var? t) g (if (number? t) (false) (true))))
+    
+    ((disj g1 g2)           (normalize-goal-disj g1 g2))
+    ((conj g1 g2)           (normalize-goal-conj g1 g2))
+    ((imply g1 g2)          (normalize-goal-imply g1 g2))
+    ((existo v g)           (normalize-goal-exists v g))
+    ((forallo v g)          (normalize-goal-forall v g))
 
-  ;; basic things
-  (((== t1 t2))           (cond
-                            ((equal? t1 t2) (true))
-                            ((and (var? t1) (var? t2)) (if (< (var-index t1) (var-index t2)) (== t1 t2) (== t2 t1)))
-                            ((var? t2) (== t1 t2))
-                            ((var? t1) (== t2 t1))
-                            ((contains-fresh? t2) (== t1 t2))
-                            ((contains-fresh? t1) (== t2 t1))
-                            (else (false))))
-  (((=/= t1 t2))          (cond
-                            ((equal? t1 t2) (false))
-                            ((and (var? t1) (var? t2)) (if (< (var-index t1) (var-index t2)) (=/= t1 t2) (=/= t2 t1)))
-                            ((var? t2) (=/= t1 t2))
-                            ((var? t1) (=/= t2 t1))
-                            ((contains-fresh? t2) (=/= t1 t2))
-                            ((contains-fresh? t1) (=/= t2 t1))
-                            (else (true))))
-  (((symbolo t))          (if (var? t) g (if (symbol? t) (true) (false))))
-  (((stringo t))          (if (var? t) g (if (string? t) (true) (false))))
-  (((numbero t))          (if (var? t) g (if (number? t) (true) (false))))
-  (((not-symbolo t))      (if (var? t) g (if (symbol? t) (false) (true))))
-  (((not-stringo t))      (if (var? t) g (if (string? t) (false) (true))))
-  (((not-numbero t))      (if (var? t) g (if (number? t) (false) (true))))
-  (((disj (true) _))      (true))
-  (((disj _ (true)))      (true))
-  (((disj (false) g))     (normalize-goal g))
-  (((disj g (false)))     (normalize-goal g))
-  (((conj (true) g))      (normalize-goal g))
-  (((conj g (true)))      (normalize-goal g))
-  (((conj (false) _))     (false))
-  (((conj _ (false)))     (false))
-  (((imply (true) g))     (normalize-goal g))
-  (((imply (false) _))    (true))
-  (((existo _ (true)))    (true))
-  (((existo _ (false)))   (false))
-  (((forallo _ (true)))   (true))
-  (((forallo _ (false)))  (false))
-  
-  ;; DNF for disj
-  (((disj (disj g1 g2) g3))
-    (normalize-goal (disj g1 (disj g2 g3))))          ;; (A or B) or C = A or (B or C)
-  
-  ;; Main disj rules
-  (((disj g1 g2))
-    (let ((h1 (normalize-goal g1))
-          (h2 (normalize-goal g2)))
-      (cond ((or (true? h1) (true? h2)) (true))
-            ((false? h1) h2)
-            ((false? h2) h1)
-            ((equal? h1 h2) h1)     ;; A or A = A
-            ((and (equal? g1 h1) (equal? g2 h2)) 
+    ;; no simplifications
+    (g g)))
+
+(define (normalize-goal-disj g1 g2)
+  (let ((g1 (normalize-goal g1)))
+    (cond
+      ((true? g1)   (true))                 ;; True or A = True
+      ((false? g1)  (normalize-goal g2))    ;; False or A = A
+      (else (let ((g2 (normalize-goal g2)))
               (cond
-                ((vacuous-disj-conj? h2 (negate-goal h1)) (true))     ;; A or ~A = True
-                ((and (not (=/=? h1)) 
-                      (or (=/=? h2) (and (disj? h2) (=/=? (disj-g1 h2))))) 
-                  (normalize-goal (disj h2 h1)))                      ;; A or (x =/= y) = (x =/= y) or A
-                ((and (conj? h1) (conj? h2) (conj-subsumes h1 h2)) (normalize-goal h2))   ;; (A and B and C) or (A and B) = A and B
-                ((and (conj? h1) (conj? h2) (conj-subsumes h2 h1)) (normalize-goal h1))   ;; (A and B) or (A and B and C) = A and B
-                ((and (=/=? h1) (var? (=/=-t2 h1)) (goal-use-var? h2 (=/=-t2 h1)))
-                  (normalize-goal (negate-goal (normalize-goal (negate-goal (disj h1 h2))))))
-                (else (disj h1 h2))))
-            (else (normalize-goal (disj h1 h2))))))
+                ((true? g2) (true))         ;; A or True = True
+                ((false? g2) g1)            ;; A or False = A
+                ((disj? g1)  (normalize-goal (disj (disj-g1 g1) (disj (disj-g2 g1) g2)))) ;; (A or B) or C = A or (B or C)
+                ((and (disj? g2) (goal=? g1 (disj-g1 g2))) g2)                            ;; A or (A or B) = A or B
+                ((and (disj? g2) (negation? g1 (disj-g1 g2))) (true))                     ;; A or (~A or B) = True
+                ((and (disj? g2) (goal-diseq-first<? (disj-g1 g2) g1)) (normalize-goal (disj (disj-g1 g2) (disj g1 (disj-g2 g2)))))
+                ((goal=? g1 g2) g1)                                                       ;; A or A = A
+                ((negation? g1 g2) (true))                                                ;; A or ~A = True
+                ((goal-diseq-first<? g2 g1) (normalize-goal (disj g2 g1)))
+                ((and (=/=? g1) (goal-use-var? g2 (=/=-t2 g1))) (normalize-goal (negate-goal (normalize-goal (negate-goal (disj g1 g2)))))) ;; A = ~~A ---- What if after the first negation we put it in CNF, and normalized that?
+                (else (disj g1 g2))))))))
 
-  ;; DNF for conj
-  (((conj (conj g1 g2) g3))
-    (normalize-goal (conj g1 (conj g2 g3))))            ;; (A and B) and C = A and (B and C) 
-  (((conj (disj g1 g2) g3))
-    (normalize-goal (disj (conj g1 g3) (conj g2 g3))))  ;; (A or B) and C  = (A and C) or (B and C)
-  (((conj g1 (disj g2 g3)))
-    (normalize-goal (disj (conj g1 g2) (conj g1 g3))))  ;; A and (B or C)  = (A and B) or (A and C)
-  
-  ;; Main conj rules
-  (((conj g1 g2))
-    (let ((h1 (normalize-goal g1))
-          (h2 (normalize-goal g2)))
-      (cond ((or (false? h1) (false? h2)) (false))
-            ((true? h1) h2)
-            ((true? h2) h1)
-            ((equal? h1 h2) h1)     ;; A and A = A
-            ((and (equal? g1 h1) (equal? g2 h2)) 
+(define (normalize-goal-conj g1 g2)
+  (let ((g1 (normalize-goal g1)))
+    (cond
+      ((true? g1)   (normalize-goal g2))    ;; True and A = A
+      ((false? g1)  (false))                ;; False and A = False
+      (else (let ((g2 (normalize-goal g2)))
               (cond
-                ((vacuous-disj-conj? h2 (negate-goal h1)) (false))  ;; A and ~A = False
-                ((and (not (==? h1)) 
-                      (or (==? h2) (and (conj? h2) (==? (conj-g1 h2))))) 
-                  (normalize-goal (conj h2 h1)))                    ;; A and (x == y) = (x == y) and A
-                ((==? h1) (let ((h3 (substitute-term h2 (==-t2 h1) (==-t1 h1))))
-                            (if (equal? h3 h2) (conj h1 h2) (normalize-goal (conj h1 h3)))))
-                (else (conj h1 h2))))
-            (else (normalize-goal (conj h1 h2))))))
-  
-  ;; (imply A B) => (disj ~A B)
-  (((imply g1 g2)) (normalize-goal (disj (negate-goal (normalize-goal g1)) g2)))
+                ((true? g2) g1)             ;; A and True = A
+                ((false? g2) (false))       ;; A and False = False
+                ((disj? g1) (normalize-goal (disj (conj (disj-g1 g1) g2) (conj (disj-g2 g1) g2))))  ;; (A or B) and C = (A and C) or (A and B)
+                ((disj? g2) (normalize-goal (disj (conj g1 (disj-g1 g2)) (conj g1 (disj-g2 g2)))))  ;; A and (B or C) = (A and B) or (A and C)
+                ((conj? g1) (normalize-goal (conj (conj-g1 g1) (conj (conj-g2 g1) g2))))            ;; (A and B) and C = A and (B and C)
+                ((and (conj? g2) (goal<? (conj-g1 g2) g1)) (normalize-goal (conj (conj-g1 g2) (conj g1 (conj-g2 g2)))))
+                ((goal<? g2 g1) (normalize-goal (conj g2 g1)))
+                ((==? g1)
+                  (let ((g2 (substitute-term g2 (==-t2 g1) (==-t1 g1))))
+                    (match g2
+                      ((true) g1)
+                      ((false) (false))
+                      (_ (conj g1 g2)))))
+                ((symbolo? g1)
+                  (let ((g2 (apply-type g2 (symbolo-t g1) symbol?)))
+                    (match g2
+                      ((true) g1)
+                      ((false) (false))
+                      (_ (conj g1 g2)))))
+                ((stringo? g1) 
+                  (let ((g2 (apply-type g2 (stringo-t g1) string?)))
+                    (match g2
+                      ((true) g1)
+                      ((false) (false))
+                      (_ (conj g1 g2)))))
+                ((numbero? g1) 
+                  (let ((g2 (apply-type g2 (numbero-t g1) number?)))
+                    (match g2
+                      ((true) g1)
+                      ((false) (false))
+                      (_ (conj g1 g2)))))
+                ((not-symbolo? g1)
+                  (let ((g2 (apply-not-type g2 (not-symbolo-t g1) symbol?)))
+                    (match g2
+                      ((true) g1)
+                      ((false) (false))
+                      (_ (conj g1 g2)))))
+                ((not-stringo? g1) 
+                  (let ((g2 (apply-not-type g2 (not-stringo-t g1) string?)))
+                    (match g2
+                      ((true) g1)
+                      ((false) (false))
+                      (_ (conj g1 g2)))))
+                ((not-numbero? g1) 
+                  (let ((g2 (apply-not-type g2 (not-numbero-t g1) number?)))
+                    (match g2
+                      ((true) g1)
+                      ((false) (false))
+                      (_ (conj g1 g2)))))
+                ((goal=? g1 g2) g1)           ;; A and A = A
+                ((negation? g1 g2) (false))   ;; A and ~A = False
+                (else (conj g1 g2))))))))
 
-  ;; exists rules
-  (((existo v g)) 
-    (normalize-goal-exists v g))
-
-  ;; forall rules
-  (((forallo v g))
-    (normalize-goal-forall v g))
-
-  ;; no simplifications
-  ((g) g))
+(define (normalize-goal-imply g1 g2)
+  (let ((g1 (normalize-goal g1)))
+    (cond
+      ((true? g1) (normalize-goal g2))                                        ;; True -> A  = A
+      ((false? g1) (true))                                                    ;; False -> A = True
+      (else (let ((neg-g1 (normalize-goal (negate-goal g1)))
+                  (g2 (normalize-goal g2)))
+              (cond
+                ((==? g1) (normalize-goal (disj neg-g1 (substitute-term g2 (==-t2 g1) (==-t1 g1)))))
+                ((symbolo? g1) (normalize-goal (disj neg-g1 (apply-type g2 (symbolo-t g1) symbol?))))
+                ((stringo? g1) (normalize-goal (disj neg-g1 (apply-type g2 (stringo-t g1) string?))))
+                ((numbero? g1) (normalize-goal (disj neg-g1 (apply-type g2 (numbero-t g1) number?))))
+                ((not-symbolo? g1) (normalize-goal (disj neg-g1 (apply-not-type g2 (not-symbolo-t g1) symbol?))))
+                ((not-stringo? g1) (normalize-goal (disj neg-g1 (apply-not-type g2 (not-stringo-t g1) string?))))
+                ((not-numbero? g1) (normalize-goal (disj neg-g1 (apply-not-type g2 (not-numbero-t g1) number?))))
+                (else (normalize-goal (normalize-goal (disj neg-g1 (disj (negate-goal g1) g2)))))))))))  ;; A -> B = ~A or B 
 
 (define (normalize-goal-exists v g)
   (match (normalize-goal g)
     ((false)          (false))
     ((true)           (true))
-    ((== t1 t2)       (if (or (term-use-var? t1 v) (term-use-var? t2 v))
-                          (existo v (== t1 t2))
-                          (== t1 t2)))
+    ((== t1 t2)       (cond
+                        ((or (equal? t1 v) (equal? t2 v)) (true))
+                        ((or (term-use-var? t1 v) (term-use-var? t2 v)) (existo v (== t1 t2)))
+                        (else (== t1 t2))))
     ((=/= t1 t2)      (if (or (term-use-var? t1 v) (term-use-var? t2 v))
-                          (existo v (=/= t1 t2))
+                          (true)
                           (=/= t1 t2)))
     ((symbolo t)      (if (term-use-var? t v)
-                          (existo v (symbolo t))
+                          (true)
                           (symbolo t)))
     ((stringo t)      (if (term-use-var? t v)
-                          (existo v (stringo t))
+                          (true)
                           (stringo t)))
     ((numbero t)      (if (term-use-var? t v)
-                          (existo v (numbero t))
+                          (true)
                           (numbero t)))
     ((not-symbolo t)  (if (term-use-var? t v)
-                          (existo v (not-symbolo t))
+                          (true)
                           (not-symbolo t)))
     ((not-stringo t)  (if (term-use-var? t v)
-                          (existo v (not-stringo t))
+                          (true)
                           (not-stringo t)))
     ((not-numbero t)  (if (term-use-var? t v)
-                          (existo v (not-numbero t))
+                          (true)
                           (not-numbero t)))
     ((imply g1 g2)    (if (or (goal-use-var? g1 v) (goal-use-var? g2 v))
                           (existo v (imply g1 g2))
@@ -292,9 +316,10 @@
     ((== t1 t2)       (if (or (term-use-var? t1 v) (term-use-var? t2 v))
                           (false)
                           (== t1 t2)))
-    ((=/= t1 t2)      (if (or (term-use-var? t1 v) (term-use-var? t2 v))
-                          (false)
-                          (=/= t1 t2)))
+    ((=/= t1 t2)      (cond
+                        ((or (equal? t1 v) (equal? t2 v)) (false))
+                        ((or (term-use-var? t1 v) (term-use-var? t2 v)) (error "Currently can't solve 4"))
+                        (else (=/= t1 t2))))
     ((symbolo t)      (if (term-use-var? t v)
                           (false)
                           (symbolo t)))
@@ -382,49 +407,208 @@
     (_                (error "can't check goal" g))
     ))
 
-(define (vacuous-disj-conj? g negated-first-goal)
-  (match g
-    ((disj g1 g2) (or (equal? g1 negated-first-goal) (vacuous-disj-conj? g2 negated-first-goal)))
-    ((conj g1 g2) (or (equal? g1 negated-first-goal) (vacuous-disj-conj? g2 negated-first-goal)))
-    (h (equal? h negated-first-goal))))
-
-;; g1 guarantees a single goal g2 holds
-;; g1 must be normalized conj
-(define (conj-subsumes-single g1 g2)
-  (match g1
-    ((conj h1 h2) (or (equal? h1 g2) (conj-subsumes-single h2 g2)))
-    (h (equal? h g2))))
-
-;; g1 guarantees all goals in g2 hold
-;; g1 and g2 must be normalized conjs
-(define (conj-subsumes g1 g2)
-  (match g2
-    ((conj h1 h2) (and (conj-subsumes-single g1 h1) (conj-subsumes g1 h2)))
-    (h (conj-subsumes-single g1 h))))
-
 ;; substitute v with term everywhere in g
 (define (substitute-term g v term)
   (match g
     ((true)  (true))
     ((false) (false))
-    ((conj g1 g2) (conj (substitute-term g1 v term) (substitute-term g2 v term)))
-    ((disj g1 g2) (disj (substitute-term g1 v term) (substitute-term g2 v term)))
+    ((conj g1 g2) (normalize-goal (conj (substitute-term g1 v term) (substitute-term g2 v term))))
+    ((disj g1 g2) (normalize-goal (disj (substitute-term g1 v term) (substitute-term g2 v term))))
     ((== t1 t2) (cond
-                  ((equal? t1 v) (== term t2))
-                  ((equal? t2 v) (== t1 term))
-                  (else (== t1 t2))))
+                  ((equal? t1 v) (normalize-goal (== term t2)))
+                  ((equal? t2 v) (normalize-goal (== t1 term)))
+                  (else (normalize-goal (== t1 t2)))))
     ((=/= t1 t2) (cond
-                  ((equal? t1 v) (=/= term t2))
-                  ((equal? t2 v) (=/= t1 term))
-                  (else (=/= t1 t2))))
-    ((symbolo t) (symbolo (if (equal? t v) term t)))
-    ((stringo t) (stringo (if (equal? t v) term t)))
-    ((numbero t) (numbero (if (equal? t v) term t)))
-    ((not-symbolo t) (not-symbolo (if (equal? t v) term t)))
-    ((not-stringo t) (not-stringo (if (equal? t v) term t)))
-    ((not-numbero t) (not-numbero (if (equal? t v) term t)))
-    ((imply g1 g2) (imply (substitute-term g1 v term) (substitute-term g2 v term)))
-    ((existo x g) (existo x (substitute-term g v term)))
-    ((forallo x g) (forallo x (substitute-term g v term)))
+                  ((equal? t1 v) (normalize-goal (=/= term t2)))
+                  ((equal? t2 v) (normalize-goal (=/= t1 term)))
+                  (else (normalize-goal (=/= t1 t2)))))
+    ((symbolo t) (normalize-goal (symbolo (if (equal? t v) term t))))
+    ((stringo t) (normalize-goal (stringo (if (equal? t v) term t))))
+    ((numbero t) (normalize-goal (numbero (if (equal? t v) term t))))
+    ((not-symbolo t) (normalize-goal (not-symbolo (if (equal? t v) term t))))
+    ((not-stringo t) (normalize-goal (not-stringo (if (equal? t v) term t))))
+    ((not-numbero t) (normalize-goal (not-numbero (if (equal? t v) term t))))
+    ((imply g1 g2) (normalize-goal (imply (substitute-term g1 v term) (substitute-term g2 v term))))
+    ((existo x g) (normalize-goal (existo x (substitute-term g v term))))
+    ((forallo x g) (normalize-goal (forallo x (substitute-term g v term))))
     (_ (error "couldn't parse goal" g))
     ))
+
+(define (apply-type g v type?)
+  (match g
+    ((true)           (true))
+    ((false)          (false))
+    ((disj g1 g2)     (normalize-goal (disj (apply-type g1 v type?) (apply-type g2 v type?))))
+    ((conj g1 g2)     (normalize-goal (conj (apply-type g1 v type?) (apply-type g2 v type?))))
+    ((== t1 t2)       (if (and (equal? v t2) (not (var? t1)) (not (type? t1)))
+                          (false)
+                          g))
+    ((=/= t1 t2)      (if (and (equal? v t2) (not (var? t1)) (not (type? t1)))
+                          (true)
+                          g))
+    ((symbolo t)      (cond
+                        ((and (equal? symbol? type?) (equal? v t)) (true))
+                        ((equal? v t) (false))
+                        (else g)))
+    ((stringo t)      (cond
+                        ((and (equal? string? type?) (equal? v t)) (true))
+                        ((equal? v t) (false))
+                        (else g)))
+    ((numbero t)      (cond
+                        ((and (equal? number? type?) (equal? v t)) (true))
+                        ((equal? v t) (false))
+                        (else g)))
+    ((not-symbolo t)  (cond
+                        ((and (equal? symbol? type?) (equal? v t)) (false))
+                        ((equal? v t) (true))
+                        (else g)))
+    ((not-stringo t)  (cond
+                        ((and (equal? string? type?) (equal? v t)) (false))
+                        ((equal? v t) (true))
+                        (else g)))
+    ((not-numbero t)  (cond
+                        ((and (equal? number? type?) (equal? v t)) (false))
+                        ((equal? v t) (true))
+                        (else g)))
+    ((imply g1 g2)    (normalize-goal (imply (apply-type g1 v type?) (apply-type g1 v type?))))
+    ((existo x g)     (normalize-goal (existo x (apply-type g v type?))))
+    ((forallo x g)    (normalize-goal (forallo x (apply-type g v type?))))
+    (_ (error "couldn't parse type"))
+  ))
+
+(define (apply-not-type g v type?)
+  (match g
+    ((true)           (true))
+    ((false)          (false))
+    ((disj g1 g2)     (normalize-goal (disj (apply-not-type g1 v type?) (apply-not-type g2 v type?))))
+    ((conj g1 g2)     (normalize-goal (conj (apply-not-type g1 v type?) (apply-not-type g2 v type?))))
+    ((== t1 t2)       (if (and (equal? v t2) (not (var? t2) (type? t1)))
+                          (false)
+                          g))
+    ((=/= t1 t2)      (if (and (equal? v t2) (not (var? t1)) (type? t1))
+                          (true)
+                          g))
+    ((symbolo t)      (if (and (equal? symbol? type?) (equal? v t)) 
+                          (false)
+                          g))
+    ((stringo t)      (if (and (equal? string? type?) (equal? v t)) 
+                          (false)
+                          g))
+    ((numbero t)      (if (and (equal? number? type?) (equal? v t)) 
+                          (false)
+                          g))
+    ((not-symbolo t)  (if (and (equal? symbol? type?) (equal? v t)) 
+                          (true)
+                          g))
+    ((not-stringo t)  (if (and (equal? string? type?) (equal? v t)) 
+                          (true)
+                          g))
+    ((not-numbero t)  (if (and (equal? number? type?) (equal? v t)) 
+                          (true)
+                          g))
+    ((imply g1 g2)    (normalize-goal (imply (apply-not-type g1 v type?) (apply-not-type g2 v type?))))
+    ((existo x g)     (normalize-goal (existo x (apply-not-type g v type?))))
+    ((forallo x g)    (normalize-goal (forallo x (apply-not-type g v type?))))
+    (_ (error "couldn't parse type"))
+    ))
+
+(define (goal=? g1 g2)    ;; Assumes that g1 and g2 are normalized
+  (cond
+    ((existo? g1) (and (existo? g2) (goal=? (existo-g g1) (substitute-term (existo-g g2) (existo-v g2) (existo-v g1)))))
+    ((forallo? g1) (and (forallo? g2) (goal=? (forallo-g g1) (substitute-term (forallo-g g2) (forallo-v g2) (forallo-v g1)))))
+    (else (equal? g1 g2))))
+
+(define (negation? g1 g2) ;; Assumes that g1 and g2 are normalized, assumes that g1 and g2 are not equal
+  (cond
+    ((==? g1) (and (=/=? g2) (equal? (==-t1 g1) (=/=-t1 g2)) (equal? (==-t2 g1) (=/=-t2 g2))))
+    ((=/=? g1) (and (==? g2) (equal? (=/=-t1 g1) (==-t1 g2)) (equal? (=/=-t2 g1) (==-t2 g2))))
+    ((symbolo? g1) (and (not-symbolo? g2) (equal? (symbolo-t g1) (not-symbolo-t g2))))
+    ((stringo? g1) (and (not-stringo? g2) (equal? (stringo-t g1) (not-stringo-t g2))))
+    ((numbero? g1) (and (not-numbero? g2) (equal? (numbero-t g1) (not-numbero-t g2))))
+    ((not-symbolo? g1) (and (symbolo? g2) (equal? (not-symbolo-t g1) (symbolo-t g2))))
+    ((not-stringo? g1) (and (stringo? g2) (equal? (not-stringo-t g1) (stringo-t g2))))    
+    ((not-numbero? g1) (and (numbero? g2) (equal? (not-numbero-t g1) (numbero-t g2))))
+    ((existo? g1) (and (forallo? g2) (negation? (existo-g g1) (substitute-term (forallo-g g2) (forallo-v g2) (existo-v g1)))))
+    ((forallo? g1) (and (existo? g2) (negation? (forallo-g g1) (substitute-term (existo-g g2) (existo-v g2) (existo-v g1)))))
+    ((existo? g2) #f)
+    ((forallo? g2) #f)
+    ((imply? g1) (negation? (disj (negate-goal (imply-g1 g1)) (imply-g2 g1))) g2)
+    (else (goal=? g1 (negate-goal g2)))))
+      
+(define (goal<? g1 g2)
+  (eqv? (goal-compare g1 g2) -1))
+
+(define (goal-diseq-first<? g1 g2)
+  (eqv? (goal-diseq-first-compare g1 g2) -1))
+
+(define (goal-compare g1 g2)
+  (cond
+    ((true? g1)         -1)
+    ((true? g2)         1)
+    ((false? g1)        -1)
+    ((false? g2)        1)
+    ((==? g1)           (cond
+                          ((and (==? g2) (equal? (==-t1 g1) (==-t1 g2))) (term-compare (==-t2 g1) (==-t2 g2)))
+                          ((==? g2) (term-compare (==-t1 g1) (==-t1 g2)))
+                          (else -1)))
+    ((==? g2)           1)
+    ((symbolo? g1)      (if (symbolo? g2) (term-compare (symbolo-t g1) (symbolo-t g2)) -1))
+    ((symbolo? g2)      1)
+    ((stringo? g1)      (if (stringo? g2) (term-compare (stringo-t g1) (stringo-t g2)) -1))
+    ((stringo? g2)      1)
+    ((numbero? g1)      (if (numbero? g2) (term-compare (numbero-t g1) (numbero-t g2)) -1))
+    ((numbero? g2)      1)
+    ((not-symbolo? g1)  (if (not-symbolo? g2) (term-compare (not-symbolo-t g1) (not-symbolo-t g2)) -1))
+    ((not-symbolo? g2)  1)
+    ((not-stringo? g1)  (if (not-stringo? g2) (term-compare (not-stringo-t g1) (not-stringo-t g2)) -1))
+    ((not-stringo? g2)  1)
+    ((not-numbero? g1)  (if (not-numbero? g2) (term-compare (not-numbero-t g1) (not-numbero-t g2)) -1))
+    ((not-numbero? g2)  1)
+    ((=/=? g1)          (cond
+                          ((and (=/=? g2) (equal? (=/=-t1 g1) (=/=-t1 g2))) (term-compare (=/=-t2 g1) (=/=-t2 g2)))
+                          ((=/=? g2) (term-compare (=/=-t1 g1) (=/=-t1 g2)))
+                          (else -1)))
+    ((=/=? g2)          1)
+    ((imply? g1)        (if (imply? g2)
+                            (let ((compared-g1 (goal-compare (imply-g1 g1) (imply-g1 g2))))
+                              (if (eqv? 0 compared-g1) (goal-compare (imply-g2 g1) (imply-g2 g2)) compared-g1))
+                            -1))
+    ((imply? g2)        1)
+    ((existo? g1)       (if (existo? g2) (if (< (var-index (existo-v g1)) (var-index (existo-v g2))) -1 1) -1))
+    ((existo? g2)       1)
+    ((forallo? g1)      (if (forallo? g2) (if (< (var-index (forallo-v g1)) (var-index (forallo-v g2))) -1 1) -1))
+    ((forallo? g2)      1)
+    ((conj? g1)         (if (conj? g2)
+                            (let ((compared-g1 (goal-compare (conj-g1 g1) (conj-g1 g2))))
+                              (if (eqv? compared-g1 0) 
+                                  (goal-compare (conj-g2 g1) (conj-g2 g2)) 
+                                  compared-g1))
+                            -1))
+    ((conj? g2)         1)
+    ((disj? g1)         (if (disj? g2)
+                            (let ((compared-g1 (goal-compare (disj-g1 g1) (disj-g1 g2))))
+                              (if (eqv? compared-g1 0) 
+                                  (goal-compare (disj-g2 g1) (disj-g2 g2)) 
+                                  compared-g1))
+                            -1))
+    ((disj? g2          1))
+    (else               0)))
+
+(define (goal-diseq-first-compare g1 g2)
+  (cond
+    ((true? g1)         -1)
+    ((true? g2)         1)
+    ((false? g1)        -1)
+    ((false? g2)        1)
+    ((=/=? g1)          (cond
+                          ((and (=/=? g2) (equal? (=/=-t1 g1) (=/=-t1 g2))) (term-compare (=/=-t2 g1) (=/=-t2 g2)))
+                          ((=/=? g2) (term-compare (=/=-t1 g1) (=/=-t1 g2)))
+                          (else -1)))
+    ((=/=? g2)          1)
+    ((not-symbolo? g1)  (if (not-symbolo? g2) (term-compare (not-symbolo-t g1) (not-symbolo-t g2)) -1))
+    ((not-symbolo? g2)  1)
+    ((not-stringo? g1)  (if (not-stringo? g2) (term-compare (not-stringo-t g1) (not-stringo-t g2)) -1))
+    ((not-stringo? g2)  1)
+    ((not-numbero? g1)  (if (not-numbero? g2) (term-compare (not-numbero-t g1) (not-numbero-t g2)) -1))
+    ((not-numbero? g2)  1)
+    (else               (goal-compare g1 g2))))
