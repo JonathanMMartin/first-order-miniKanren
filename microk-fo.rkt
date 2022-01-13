@@ -150,16 +150,16 @@
     ((not-stringo t)        (if (var? t) g (if (string? t) (false) (true))))
     ((not-numbero t)        (if (var? t) g (if (number? t) (false) (true))))
     
-    ((disj g1 g2)           (normalize-goal-disj g1 g2))
-    ((conj g1 g2)           (normalize-goal-conj g1 g2))
-    ((imply g1 g2)          (normalize-goal-imply g1 g2))
-    ((existo v g)           (normalize-goal-exists v g))
-    ((forallo v g)          (normalize-goal-forall v g))
+    ((disj g1 g2)           (DNF-normalize-disj g1 g2))
+    ((conj g1 g2)           (DNF-normalize-conj g1 g2))
+    ((imply g1 g2)          (DNF-normalize-imply g1 g2))
+    ((existo v g)           (DNF-normalize-exists v g))
+    ((forallo v g)          (DNF-normalize-forall v g))
 
     ;; no simplifications
     (g g)))
 
-(define (normalize-goal-disj g1 g2)
+(define (DNF-normalize-disj g1 g2)
   (let ((g1 (normalize-goal g1)))
     (cond
       ((true? g1)   (true))                 ;; True or A = True
@@ -178,7 +178,7 @@
                 ((and (=/=? g1) (goal-use-var? g2 (=/=-t2 g1))) (normalize-goal (negate-goal (normalize-goal (negate-goal (disj g1 g2)))))) ;; A = ~~A ---- What if after the first negation we put it in CNF, and normalized that?
                 (else (disj g1 g2))))))))
 
-(define (normalize-goal-conj g1 g2)
+(define (DNF-normalize-conj g1 g2)
   (let ((g1 (normalize-goal g1)))
     (cond
       ((true? g1)   (normalize-goal g2))    ;; True and A = A
@@ -238,7 +238,7 @@
                 ((negation? g1 g2) (false))   ;; A and ~A = False
                 (else (conj g1 g2))))))))
 
-(define (normalize-goal-imply g1 g2)
+(define (DNF-normalize-imply g1 g2)
   (let ((g1 (normalize-goal g1)))
     (cond
       ((true? g1) (normalize-goal g2))                                        ;; True -> A  = A
@@ -255,7 +255,7 @@
                 ((not-numbero? g1) (normalize-goal (disj neg-g1 (apply-not-type g2 (not-numbero-t g1) number?))))
                 (else (normalize-goal (normalize-goal (disj neg-g1 (disj (negate-goal g1) g2)))))))))))  ;; A -> B = ~A or B 
 
-(define (normalize-goal-exists v g)
+(define (DNF-normalize-exists v g)
   (match (normalize-goal g)
     ((false)          (false))
     ((true)           (true))
@@ -309,7 +309,7 @@
                       (else (existo v (conj g1 g2))))))
     ))
 
-(define (normalize-goal-forall v g)
+(define (DNF-normalize-forall v g)
   (match (normalize-goal g)
     ((false)          (false))
     ((true)           (true))
