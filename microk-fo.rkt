@@ -118,8 +118,7 @@
     ((false? g)     #t)
     ((==? g)        #t)
     ((=/=? g)       #t)
-    ((disj? g)      (and (decidable? (disj-g1 g)) (decidable? (disj-g2 g))))
-    ((conj? g)      (and (decidable? (conj-g1 g)) (decidable? (conj-g2 g))))
+    ((disj/conj? g) (and (decidable? (disj/conj-g1 g)) (decidable? (disj/conj-g2 g))))
     ((typeo? g)     #t)
     ((not-typeo? g) #t)
     ((imply? g)     (and (decidable? (imply-g1 g)) (decidable? (imply-g2 g))))
@@ -130,24 +129,15 @@
 (define (normalize-decidable g)
   (cond
     ((decidable? g) (normalize-goal g))
-    ((disj? g)      (let ((g1 (normalize-decidable (disj-g1 g))))
+    ((disj/conj? g) (let ((g1 (normalize-decidable (disj/conj-g1 g))))
                       (match g1
-                        ((true)   (true))
-                        ((false)  (normalize-decidable (disj-g2 g)))
-                        (_        (let ((g2 (normalize-decidable (disj-g2 g))))
+                        ((true)   (if (disj? g) (true) (normalize-decidable (conj-g2 g))))
+                        ((false)  (if (disj? g) (normalize-decidable (disj-g2 g)) (false)))
+                        (_        (let ((g2 (normalize-decidable (disj/conj-g2 g))))
                                     (match g2
-                                      ((true)   (true))
-                                      ((false)  g1)
-                                      (_        (disj g1 g2))))))))
-    ((conj? g)      (let ((g1 (normalize-decidable (conj-g1 g))))
-                      (match g1
-                        ((true)   (normalize-decidable (conj-g2 g)))
-                        ((false)  (false))
-                        (_        (let ((g2 (normalize-decidable (conj-g2 g))))
-                                    (match g2
-                                      ((true)   g1)
-                                      ((false)  (false))
-                                      (_        (conj g1 g2))))))))
+                                      ((true)   (if (disj? g) (true) g2))
+                                      ((false)  (if (disj? g) g1 (false)))
+                                      (_        (if (disj? g) (disj g1 g2) (conj g1 g2)))))))))
     ((imply? g)     (let ((g1 (normalize-decidable (imply-g1 g))))
                       (cond 
                         ((true? g1)   (normalize-decidable (imply-g2 g)))
@@ -352,6 +342,19 @@
                         (else (normalize-goal (conj (forallo v g1) (forallo v g2)) DNF?)))))
       (else         (forallo v g)))))
 
+(define (disj/conj? g)
+  (or (disj? g) (conj? g)))
+
+(define (disj/conj-g1 g)
+  (if (disj? g)
+      (disj-g1 g)
+      (conj-g1 g)))
+
+(define (disj/conj-g2 g)
+  (if (disj? g)
+      (disj-g2 g)
+      (conj-g2 g)))
+
 (define (typeo? g)
   (or (symbolo? g) (stringo? g) (numbero? g)))
 
@@ -392,8 +395,7 @@
   (cond
     ((true? g)        #f)
     ((false? g)       #f)
-    ((disj? g)        (or (goal-use-var? (disj-g1 g) v) (goal-use-var? (disj-g2 g) v)))
-    ((conj? g)        (or (goal-use-var? (conj-g1 g) v) (goal-use-var? (conj-g2 g) v)))
+    ((disj/conj? g)   (or (goal-use-var? (disj/conj-g1 g) v) (goal-use-var? (disj/conj-g2 g) v)))
     ((==? g)          (or (term-use-var? (==-t1 g) v) (term-use-var? (==-t2 g) v)))
     ((=/=? g)         (or (term-use-var? (=/=-t1 g) v) (term-use-var? (=/=-t2 g) v)))
     ((typeo? g)       (term-use-var? (typeo-t g) v))
