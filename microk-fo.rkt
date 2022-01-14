@@ -52,7 +52,7 @@
   (cond
     ((true? g)      (false))
     ((false? g)     (true))
-    ((disj? g)      (conj (negate-goal (conj-g1 g)) (negate-goal (conj-g2 g))))
+    ((disj? g)      (conj (negate-goal (disj-g1 g)) (negate-goal (disj-g2 g))))
     ((conj? g)      (disj (negate-goal (conj-g1 g)) (negate-goal (conj-g2 g))))
     ((==? g)        (=/= (==-t1 g) (==-t2 g)))
     ((=/=? g)       (== (=/=-t1 g) (=/=-t2 g)))
@@ -247,11 +247,14 @@
                            (no-v-in-g1? (not (goal-use-var? g1 v)))
                            (no-v-in-g2? (not (goal-use-var? g2 v))))
                       (cond
-                        ((and no-v-in-g1? no-v-in-g2?) (conj g1 g2))
+                        ((and no-v-in-g1? no-v-in-g2?) g)
                         (no-v-in-g1? (normalize-goal (conj g1 (existo v g2)) DNF?))
                         (no-v-in-g2? (normalize-goal (conj g2 (existo v g1)) DNF?))
-                        ((and (typeo? g1) (typeo? g2) (equal? (typeo-t g) (typeo-t g))) (false))
-                        (else (existo v (conj g1 g2))))))
+                        ((and (=/=? g1) (=/=? g2)) (true))
+                        ((and (=/=? g1) (conj? g2) (=/=? (disj-g1 g2))) (true))
+                        ((and (not-typeo? g1) (not-typeo? g2) (equal? (typeo-t g1) (typeo-t g2))) (true))
+                        ((and (not-typeo? g1) (conj? g2) (not-typeo? (conj-g1 g2)) (equal? (typeo-t g1) (typeo-t (conj-g1 g2))) (true)))
+                        (else (existo v g)))))
       (else         (existo v g)))))
 
 (define (normalize-forall v g [DNF? #t])
@@ -263,19 +266,19 @@
       ((=/=? g)   (let ((t1 (=/=-t1 g)) (t2 (=/=-t2 g)))
                     (cond
                       ((or (equal? t1 v) (equal? t2 v)) (false))
-                      ((or (term-use-var? t1 v) (term-use-var? t2 v)) (error "Currently can't solve 1"))
+                      ((or (term-use-var? t1 v) (term-use-var? t2 v)) (error "Currently can't solve 1" g))
                       (else g))))
       
       ((or (typeo? g) (not-typeo? g)) (if (term-use-var? (typeo-t g) v) (false) g))
       
       ((imply? g)   (if (or (goal-use-var? (imply-g1 g) v) (goal-use-var? (imply-g2 g) v))
-                        (error "Currently can't solve 2")
+                        (error "Currently can't solve 2" g)
                         g))
       ((existo? g)  (if (goal-use-var? (existo-g g) v)
-                        (error "Currently can't solve 3") 
+                        (error "Currently can't solve 3" g) 
                         g))
       ((forallo? g) (if (goal-use-var? (forallo-g g) v)
-                        (error "Currently can't solve 4")
+                        (error "Currently can't solve 4" g)
                         (normalize-goal (negate-goal (normalize-goal (negate-goal g) DNF?)) DNF?)))
       ((disj? g)    (let* ((g1 (disj-g1 g)) 
                            (g2 (disj-g2 g))
@@ -285,8 +288,11 @@
                         ((and no-v-in-g1? no-v-in-g2?) (disj g1 g2))
                         (no-v-in-g1? (normalize-goal (disj g1 (forallo v g2)) DNF?))
                         (no-v-in-g2? (normalize-goal (disj g2 (forallo v g1)) DNF?))
-                        ((and (typeo? g1) (typeo? g2) (equal? (typeo-t g1) (typeo-t g2))) (false))
-                        (else (error "Currently can't solve 5")))))
+                        ((and (==? g1) (==? g2)) (false))
+                        ((and (==? g1) (disj? g2) (==? (disj-g1 g2))) (false))
+                        ((and (typeo? g1) (typeo? g2)) (false))
+                        ((and (typeo? g1) (disj? g2) (typeo? (disj-g1 g2))) (false))
+                        (else (normalize-goal (negate-goal (normalize-goal (negate-goal (forallo v g)) DNF?)) DNF?)))))   ;; WARNING: this may cause infinite recursion
       ((conj? g)    (let* ((g1 (conj-g1 g))
                            (g2 (conj-g2 g))
                            (no-v-in-g1? (not (goal-use-var? g1 v)))
@@ -296,7 +302,7 @@
                         (no-v-in-g1? (normalize-goal (conj g1 (forallo v g2)) DNF?))
                         (no-v-in-g2? (normalize-goal (conj g2 (forallo v g1)) DNF?))
                         (else (normalize-goal (conj (forallo v g1) (forallo v g2)) DNF?)))))
-      (else         (existo v g)))))
+      (else         (forallo v g)))))
 
 (define (typeo? g)
   (or (symbolo? g) (stringo? g) (numbero? g)))
@@ -312,7 +318,7 @@
     ((not-symbolo t)  t)
     ((not-stringo t)  t)
     ((not-numbero t)  t)
-    (_ (error "type-t: invalid goal"))))
+    (_ (error "typeo-t: invalid goal" g))))
 
 (define (typeo->type? g)
   (match g
@@ -322,7 +328,7 @@
     ((not-stringo _)  string?)
     ((numbero _)      number?)
     ((not-numbero _)  number?)
-    (_ (error "type->type?: Invalid type"))))
+    (_ (error "type->type?: Invalid type" g))))
 
 (define (type->goal t type? [not-type? #f])
   (cond
@@ -387,7 +393,7 @@
     ((imply? g)       (normalize-goal (imply (apply-type (imply-g1 g) v type? DNF? not-type?) (apply-type (imply-g2 g) v type? DNF? not-type?))))
     ((existo? g)      (normalize-goal (existo (existo-v g) (apply-type (existo-g g) v type? DNF? not-type?))))
     ((forallo? g)     (normalize-goal (forallo (forallo-v g) (apply-type (forallo-g g) v type? DNF? not-type?))))
-    (else             (error "Couldn't parse goal"))))
+    (else             (error "Couldn't parse goal" g))))
 
 (define (goal=? g1 g2)    ;; Assumes that g1 and g2 are normalized
   (cond
@@ -464,7 +470,7 @@
                                   (goal-compare (disj-g2 g1) (disj-g2 g2)) 
                                   compared-g1))
                             -1))
-    ((disj? g2          1))
+    ((disj? g2)         1)
     (else               0)))
 
 (define (goal-diseq-first-compare g1 g2)

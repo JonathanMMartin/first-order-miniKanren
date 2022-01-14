@@ -129,6 +129,62 @@
    (run 1 (x) (forall (v) (disj (symbolo v) (numbero v))))
    '())
 
+(test 'forall-disj-2
+   (run 1 (x) (forall (v) (disj (symbolo v) (disj (numbero v) (stringo v)))))
+   '())
+
+(test 'forall-disj-3
+   (run 1 (x) (forall (v) (disj (not-symbolo v) (not-numbero v))))
+   '((_.0)))
+
+(test 'forallo-disj-4
+   (run 1 (x) (forall (v) (disj (not-symbolo v) (disj (not-numbero v) (not-stringo v)))))
+   '((_.0)))
+
+(test 'forall-disj-5
+   (run 1 (x) (forall (v) (disj (not-stringo v) (numbero v))))
+   '())
+
+(test 'forall-disj-6
+   (run 1 (x) (forall (v) (disj (== 1 v) (== 2 v))))
+   '())
+
+(test 'forall-disj-7
+   (run 1 (x) (forall (v) (disj (=/= 1 v) (=/= 2 v))))
+   '((_.0)))
+
+(test 'forall-conj-0
+   (run 1 (x) (forall (v) (conj (numbero v) (=/= v 1))))
+   '())
+
+(test 'forall-conj-1
+   (run 1 (x) (forall (v) (conj (symbolo v) (numbero v))))
+   '())
+
+(test 'forall-conj-2
+   (run 1 (x) (forall (v) (conj (symbolo v) (conj (numbero v) (stringo v)))))
+   '())
+
+(test 'forall-conj-3
+   (run 1 (x) (forall (v) (conj (not-symbolo v) (not-numbero v))))
+   '())
+
+(test 'forallo-conj-4
+   (run 1 (x) (forall (v) (conj (not-symbolo v) (conj (not-numbero v) (not-stringo v)))))
+   '())
+
+(test 'forall-conj-5
+   (run 1 (x) (forall (v) (conj (not-stringo v) (numbero v))))
+   '())
+
+(test 'forall-conj-6
+   (run 1 (x) (forall (v) (conj (== 1 v) (== 2 v))))
+   '())
+
+(test 'forall-conj-7
+   (run 1 (x) (forall (v) (conj (=/= 1 v) (=/= 2 v))))
+   '())
+
 (test 'forall-forall-0
    (run 1 (x) (forall (v) (forall (u) (== v u))))
    '())
