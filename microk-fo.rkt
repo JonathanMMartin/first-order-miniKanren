@@ -68,7 +68,7 @@
   (if (mature? s) s (mature (step s))))
 
 (define (start st g)
-  (match (normalize-goal g)
+  (match (normalize-decidable g)
     ((true) (state->stream st))
     ((false) (state->stream #f))
     ((disj g1 g2)
@@ -87,7 +87,7 @@
     ((not-stringo t) (state->stream (not-typify t string? st)))
     ((not-numbero t) (state->stream (not-typify t number? st)))
     ((imply g1 g2)
-     (step (mplus (pause st (negate-goal g1))
+     (step (mplus (pause st (negate-goal g1))   ;; This will only work the the goal g1 is decidable, how will we solve non-decidable goals?
                   (pause st (conj g1 g2)))))
     ((existo v g) (step (pause (add-to-scope v 'e st) g)))
     ((forallo v g) (error "not enough rules: forall"))
@@ -111,6 +111,54 @@
              (else (bind s g)))))
     ((pause st g) (start st g))
     (_            s)))
+
+(define (decidable? g)
+  (cond
+    ((true? g)      #t)
+    ((false? g)     #t)
+    ((==? g)        #t)
+    ((=/=? g)       #t)
+    ((disj? g)      (and (decidable? (disj-g1 g)) (decidable? (disj-g2 g))))
+    ((conj? g)      (and (decidable? (conj-g1 g)) (decidable? (conj-g2 g))))
+    ((typeo? g)     #t)
+    ((not-typeo? g) #t)
+    ((imply? g)     (and (decidable? (imply-g1 g)) (decidable? (imply-g2 g))))
+    ((existo? g)    (decidable? (existo-g g)))
+    ((forallo? g)   (decidable? (forallo-g g)))
+    (else           #f)))
+
+(define (normalize-decidable g)
+  (cond
+    ((decidable? g) (normalize-goal g))
+    ((disj? g)      (let ((g1 (normalize-decidable (disj-g1 g))))
+                      (match g1
+                        ((true)   (true))
+                        ((false)  (normalize-decidable (disj-g2 g)))
+                        (_        (let ((g2 (normalize-decidable (disj-g2 g))))
+                                    (match g2
+                                      ((true)   (true))
+                                      ((false)  g1)
+                                      (_        (disj g1 g2))))))))
+    ((conj? g)      (let ((g1 (normalize-decidable (conj-g1 g))))
+                      (match g1
+                        ((true)   (normalize-decidable (conj-g2 g)))
+                        ((false)  (false))
+                        (_        (let ((g2 (normalize-decidable (conj-g2 g))))
+                                    (match g2
+                                      ((true)   g1)
+                                      ((false)  (false))
+                                      (_        (conj g1 g2))))))))
+    ((imply? g)     (let ((g1 (normalize-decidable (imply-g1 g))))
+                      (cond 
+                        ((true? g1)   (normalize-decidable (imply-g2 g)))
+                        ((false? g1)  (true))
+                        (else         (let ((g2 (normalize-decidable (imply-g2 g))))
+                                        (if (decidable? g1)
+                                            (disj (normalize-goal (negate-goal g1)) g2)
+                                            (imply g1 g2)))))))
+    ((existo? g)    (existo (existo-v g) (normalize-decidable (existo-g g))))
+    ((forallo? g)   (forallo (forallo-v g) (normalize-decidable (forallo-g g))))
+    (else           g)))
 
 (define (normalize-goal g [DNF? #t])
   (cond
