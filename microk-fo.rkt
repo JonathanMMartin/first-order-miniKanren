@@ -447,12 +447,14 @@
 
 (define (goal=? g1 g2)    ;; Assumes that g1 and g2 are normalized
   (cond
-    ((existo? g1) (and (existo? g2) (goal=? (existo-g g1) (substitute-term (existo-g g2) (existo-v g2) (existo-v g1)))))
-    ((forallo? g1) (and (forallo? g2) (goal=? (forallo-g g1) (substitute-term (forallo-g g2) (forallo-v g2) (forallo-v g1)))))
-    (else (equal? g1 g2))))
+    ((existo? g1)   (and (existo? g2) (goal=? (existo-g g1) (substitute-term (existo-g g2) (existo-v g2) (existo-v g1)))))
+    ((forallo? g1)  (and (forallo? g2) (goal=? (forallo-g g1) (substitute-term (forallo-g g2) (forallo-v g2) (forallo-v g1)))))
+    (else           (equal? g1 g2))))
 
 (define (negation? g1 g2) ;; Assumes that g1 and g2 are normalized, assumes that g1 and g2 are not equal
   (cond
+    ((true? g1)      (false? g2))
+    ((false? g1)     (true? g2))
     ((==? g1)        (and (=/=? g2) (equal? (==-t1 g1) (=/=-t1 g2)) (equal? (==-t2 g1) (=/=-t2 g2))))
     ((=/=? g1)       (and (==? g2) (equal? (=/=-t1 g1) (==-t1 g2)) (equal? (=/=-t2 g1) (==-t2 g2))))
     ((typeo? g1)     (and (not-typeo? g2) (equal? (typeo->type? g1) (typeo->type? g2)) (equal? (typeo-t g1) (typeo-t g2))))
