@@ -63,11 +63,6 @@
 
 
 
-
-
-
-
-
 (define (mature? s) (or (not s) (pair? s)))
 (define (mature s)
   (if (mature? s) s (mature (s))))

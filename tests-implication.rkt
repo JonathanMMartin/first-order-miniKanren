@@ -19,7 +19,7 @@
 
 (test 'implication-type-constraint-1
   (run* (x) (imply (=/= x 1) (numbero x)))
-  '((1) #s(Ans (_.0) ((num _.0)))))
+  '(#s(Ans (_.0) ((num _.0)))))
 
 (test 'implication-mult-var-1
   (run* (x y z) (imply (== (list x y) (list y z)) (== z x)))
