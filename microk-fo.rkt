@@ -329,7 +329,7 @@
                         ((and (==? g1) (==? g2)) (false))
                         ((and (==? g1) (disj? g2) (==? (disj-g1 g2))) (false))
                         ((and (typeo? g1) (typeo? g2)) (false))
-                        ((and (typeo? g1) (disj? g2) (typeo? (disj-g1 g2))) (false))
+                        ((and (typeo? g1) (disj? g2) (typeo? (disj-g1 g2))) (false))  ;; TODO if we add undecideable, could it be that this isn't false?
                         (else (normalize-goal (negate-goal (normalize-goal (negate-goal (forallo v g)) DNF?)) DNF?)))))   ;; WARNING: this may cause infinite recursion
       ((conj? g)    (let* ((g1 (conj-g1 g))
                            (g2 (conj-g2 g))

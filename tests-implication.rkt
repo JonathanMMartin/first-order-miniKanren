@@ -24,3 +24,7 @@
 (test 'implication-mult-var-1
   (run* (x y z) (imply (== (list x y) (list y z)) (== z x)))
   '((_.0 _.1 _.2)))
+
+(test 'implication-complicated-0
+  (run* (x y) (imply (conj (numbero x) (symbolo y)) (=/= x y)))
+  '((_.0 _.1)))
