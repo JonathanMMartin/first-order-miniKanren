@@ -11,9 +11,11 @@
   (struct-out symbolo)
   (struct-out stringo)
   (struct-out numbero)
+  (struct-out pairo)
   (struct-out not-symbolo)
   (struct-out not-stringo)
   (struct-out not-numbero)
+  (struct-out not-pairo)
   (struct-out imply)
   (struct-out existential)
   (struct-out universal)
@@ -38,9 +40,11 @@
 (struct symbolo     (t)                      #:prefab)
 (struct stringo     (t)                      #:prefab)
 (struct numbero     (t)                      #:prefab)
+(struct pairo       (t)                      #:prefab)
 (struct not-symbolo (t)                      #:prefab)
 (struct not-stringo (t)                      #:prefab)
 (struct not-numbero (t)                      #:prefab)
+(struct not-pairo   (t)                      #:prefab)
 (struct imply       (g1 g2)                  #:prefab)
 (struct existential (v g)                    #:prefab)
 (struct universal   (v g)                    #:prefab)
@@ -68,7 +72,7 @@
   (if (mature? s) s (mature (step s))))
 
 (define (start st g)
-  (match (normalize-decidable g)
+  (match (combine-diseqs (normalize-decidable g))
     ((true) (state->stream st))
     ((false) (state->stream #f))
     ((disj g1 g2)
@@ -83,9 +87,11 @@
     ((symbolo t) (state->stream (typify t symbol? st)))
     ((stringo t) (state->stream (typify t string? st)))
     ((numbero t) (state->stream (typify t number? st)))
+    ((pairo t)   (state->stream (typify t pair? st)))
     ((not-symbolo t) (state->stream (not-typify t symbol? st)))
     ((not-stringo t) (state->stream (not-typify t string? st)))
     ((not-numbero t) (state->stream (not-typify t number? st)))
+    ((not-pairo t)   (state->stream (not-typify t pair? st)))
     ((imply g1 g2)
      (step (mplus (pause st (negate-goal g1))   ;; This will only work the the goal g1 is decidable, how will we solve non-decidable goals?
                   (pause st (conj g1 g2)))))
@@ -157,7 +163,7 @@
     ; ((and (==? g) (pair? (==-t1 g))) (if (var? (==-t2 g)) g (false)))
     ; ((and (==? g) (pair? (==-t2 g))) (if (var? (==-t1 g)) (== (==-t2 g) (==-t1 g)) (false)))
     
-    ; ((and (=/=? g) (pair? (=/=-t1 g)) (pair? (=/=-t2 g))) (normalize-goal (disj (=/= (car (=/=-t1 g)) (car (=/=-t2 g))) (=/= (cdr (=/=-t1 g)) (cdr (=/=-t2 g)))) DNF?))
+    ((and (=/=? g) (pair? (=/=-t1 g)) (pair? (=/=-t2 g))) (normalize-goal (disj (=/= (car (=/=-t1 g)) (car (=/=-t2 g))) (=/= (cdr (=/=-t1 g)) (cdr (=/=-t2 g)))) DNF?))
     ; ((and (=/=? g) (pair? (=/=-t1 g))) (if (var? (=/=-t2 g)) g (false)))
     ; ((and (=/=? g) (pair? (=/=-t2 g))) (if (var? (=/=-t1 g)) (=/= (=/=-t2 g) (=/=-t1 g)) (false)))
 
@@ -187,7 +193,7 @@
     ((conj? g)        (normalize-conj (conj-g1 g) (conj-g2 g) DNF?))
     ((imply? g)       (normalize-imply (imply-g1 g) (imply-g2 g) DNF?))
     ((existential? g) (normalize-existential (existential-v g) (existential-g g) DNF?))
-    ((universal? g)   (normalize-forall (universal-v g) (universal-g g) DNF?))
+    ((universal? g)   (normalize-universal (universal-v g) (universal-g g) DNF?))
     
     (else           g)))
 
@@ -200,8 +206,9 @@
               (cond
                 ((true? g2)   (true))           ;; A or True = True
                 ((false? g2)  g1)               ;; A or False = A
-                ((and (not DNF?) (conj? g1))  (error "CNF not implemented"))
-                ((and (not DNF?) (conj? g2))  (error "CNF not implemented"))
+                ; ((and (not DNF?) (conj? g1) (conj? g2)) (error "CNF not implemented"))
+                ; ((and (not DNF?) (conj? g1))  (error "CNF not implemented"))
+                ; ((and (not DNF?) (conj? g2))  (error "CNF not implemented"))
                 ((disj? g1)   (normalize-goal (disj (disj-g1 g1) (disj (disj-g2 g1) g2)) DNF?))
                 ((and (disj? g2) (goal-diseq-first<? (disj-g1 g2) g1)) (normalize-goal (disj (disj-g1 g2) (disj g1 (disj-g2 g2))) DNF?))
                 ((goal-diseq-first<? g2 g1) (normalize-goal (disj g2 g1) DNF?))
@@ -213,6 +220,7 @@
                       ((true)   (true))
                       ((false)  g1)
                       (_        (disj g1 g2)))))
+                ((and (disj? g2) (goal=? g1 (disj-g1 g2))) (disj g1 (disj-g2 g2)))
                 ((goal=? g1 g2) g1)             ;; A or A = A
                 ((negation? g1 g2) (true))      ;; A or ~A = True
                 (else (disj g1 g2))))))))
@@ -226,8 +234,8 @@
               (cond
                 ((true? g2)   g1)               ;; A and True = A
                 ((false? g2)  (false))          ;; A and False = False
-                ((and DNF? (disj? g1)) (normalize-goal (disj (conj (disj-g1 g1) g2) (conj (disj-g2 g1) g2)) DNF?))  ;; (A or B) and C = (A and C) or (B and C)
-                ((and DNF? (disj? g2)) (normalize-goal (disj (conj g1 (disj-g1 g2)) (conj g1 (disj-g2 g2))) DNF?))  ;; A and (B or C) = (A and B) or (A and C)
+                ; ((and DNF? (disj? g1)) (normalize-goal (disj (conj (disj-g1 g1) g2) (conj (disj-g2 g1) g2)) DNF?))  ;; (A or B) and C = (A and C) or (B and C)
+                ; ((and DNF? (disj? g2)) (normalize-goal (disj (conj g1 (disj-g1 g2)) (conj g1 (disj-g2 g2))) DNF?))  ;; A and (B or C) = (A and B) or (A and C)
                 ((conj? g1)            (normalize-goal (conj (conj-g1 g1) (conj (conj-g2 g1) g2)) DNF?))            ;; (A and B) and C = A and (B and C)
                 ((and (conj? g2) (goal<? (conj-g1 g2) g1)) (normalize-goal (conj (conj-g1 g2) (conj g1 (conj-g2 g2))) DNF?))
                 ((goal<? g2 g1) (normalize-goal (conj g2 g1) DNF?))
@@ -239,6 +247,7 @@
                       ((true) g1)
                       ((false) (false))
                       (_ (conj g1 g2)))))
+                ((and (conj? g2) (goal=? g1 (conj-g1 g2))) (conj g1 (conj-g2 g2)))
                 ((goal=? g1 g2) g1)             ;; A and A = A
                 ((negation? g1 g2) (false))     ;; A and ~A = False
                 (else (conj g1 g2))))))))
@@ -295,7 +304,7 @@
                         (else (existential v g)))))
       (else         (existential v g)))))
 
-(define (normalize-forall v g [DNF? #t])
+(define (normalize-universal v g [DNF? #t])
   (let ((g (normalize-goal g DNF?)))
     (cond
       ((true? g)  (true))
@@ -330,7 +339,7 @@
                         ((and (==? g1) (disj? g2) (==? (disj-g1 g2))) (false))
                         ((and (typeo? g1) (typeo? g2)) (false))
                         ((and (typeo? g1) (disj? g2) (typeo? (disj-g1 g2))) (false))  ;; TODO if we add undecideable, could it be that this isn't false?
-                        (else (normalize-goal (negate-goal (normalize-goal (negate-goal (universal v g)) DNF?)) DNF?)))))   ;; WARNING: this may cause infinite recursion
+                        (else (normalize-goal (negate-goal (normalize-goal (negate-goal (universal v g)) DNF?)) DNF?)))))   ;;! WARNING: this may cause infinite recursion
       ((conj? g)    (let* ((g1 (conj-g1 g))
                            (g2 (conj-g2 g))
                            (no-v-in-g1? (not (goal-use-var? g1 v)))
@@ -341,6 +350,16 @@
                         (no-v-in-g2? (normalize-goal (conj g2 (universal v g1)) DNF?))
                         (else (normalize-goal (conj (universal v g1) (universal v g2)) DNF?)))))
       (else         (universal v g)))))
+
+(define (combine-diseqs g)
+  (match g
+    ((disj (=/= t1 t2) (=/= s1 s2))           (=/= (cons t1 s1) (cons t2 s2)))
+    ((disj (=/= t1 t2) (disj (=/= s1 s2) h))  (combine-diseqs (disj (=/= (cons t1 s1) (cons t2 s2)) h)))
+    ((conj g1 g2)                             (conj (combine-diseqs g1) (combine-diseqs g2)))
+    ((imply g1 g2)                            (imply (combine-diseqs g1) (combine-diseqs g2)))
+    ((existential v h)                        (existential v (combine-diseqs h)))
+    ((universal v h)                          (universal v (combine-diseqs h)))
+    (_                                        g)))
 
 (define (disj/conj? g)
   (or (disj? g) (conj? g)))
@@ -356,19 +375,21 @@
       (conj-g2 g)))
 
 (define (typeo? g)
-  (or (symbolo? g) (stringo? g) (numbero? g)))
+  (or (symbolo? g) (stringo? g) (numbero? g) (pairo? g)))
 
 (define (not-typeo? g)
-  (or (not-symbolo? g) (not-stringo? g) (not-numbero? g)))
+  (or (not-symbolo? g) (not-stringo? g) (not-numbero? g) (not-pairo? g)))
 
 (define (typeo-t g)
   (match g
     ((symbolo t)      t)
     ((stringo t)      t)
     ((numbero t)      t)
+    ((pairo t)        t)
     ((not-symbolo t)  t)
     ((not-stringo t)  t)
     ((not-numbero t)  t)
+    ((not-pairo t)    t)
     (_ (error "typeo-t: invalid goal" g))))
 
 (define (typeo->type? g)
@@ -379,6 +400,8 @@
     ((not-stringo _)  string?)
     ((numbero _)      number?)
     ((not-numbero _)  number?)
+    ((pairo _)        pair?)
+    ((not-pairo _)    pair?)
     (_ (error "type->type?: Invalid type" g))))
 
 (define (type->goal t type? [not-type? #f])
@@ -389,6 +412,8 @@
     ((eq? type? string?)                 (stringo t))
     ((and not-type? (eq? type? number?)) (not-numbero t))
     ((eq? type? number?)                 (numbero t))
+    ((and not-type? (eq? type? pair?))   (not-pairo t))
+    ((eq? type? pair?)                   (pairo t))
     (else (error "type->goal: Invalid type"))))
 
 (define (goal-use-var? g v)
@@ -416,8 +441,8 @@
     ((=/=? g)                       (normalize-goal (=/= (if (equal? (=/=-t1 g) v) term (=/=-t1 g)) (if (equal? (=/=-t2 g) v) term (=/=-t2 g)))))
     ((or (typeo? g) (not-typeo? g)) (normalize-goal (type->goal (if (equal? (typeo-t g) v) term (typeo-t g)) (typeo->type? g) (not-typeo? g))))
     ((imply? g)                     (normalize-goal (imply (substitute-term (imply-g1 g) v term DNF?) (substitute-term (imply-g2 g) v term DNF?)) DNF?))
-    ((existential? g)                    (normalize-goal (existential (existential-v g) (substitute-term (existential-g g) v term DNF?)) DNF?))
-    ((universal? g)                   (normalize-goal (universal (universal-v g) (substitute-term (universal-g g) v term DNF?)) DNF?))
+    ((existential? g)               (normalize-goal (existential (existential-v g) (substitute-term (existential-g g) v term DNF?)) DNF?))
+    ((universal? g)                 (normalize-goal (universal (universal-v g) (substitute-term (universal-g g) v term DNF?)) DNF?))
     (else                           (error "Couldn't parse goal" g))))
 
 (define (apply-type g v type? [DNF? #t] [not-type? #f])
@@ -445,13 +470,13 @@
     ((universal? g)     (normalize-goal (universal (universal-v g) (apply-type (universal-g g) v type? DNF? not-type?))))
     (else             (error "Couldn't parse goal" g))))
 
-(define (goal=? g1 g2)    ;; Assumes that g1 and g2 are normalized
-  (cond
-    ((existential? g1)   (and (existential? g2) (goal=? (existential-g g1) (substitute-term (existential-g g2) (existential-v g2) (existential-v g1)))))
-    ((universal? g1)  (and (universal? g2) (goal=? (universal-g g1) (substitute-term (universal-g g2) (universal-v g2) (universal-v g1)))))
-    (else           (equal? g1 g2))))
+(define (goal=? g1 g2)    ;;* Assumes that g1 and g2 are normalized
+  (match g1
+    ((existential v h)  (and (existential? g2) (goal=? h (substitute-term (existential-g g2) (existential-v g2) v))))
+    ((universal v h)    (and (universal? g2) (goal=? h (substitute-term (universal-g g2) v))))
+    (_                  (equal? g1 g2))))
 
-(define (negation? g1 g2) ;; Assumes that g1 and g2 are normalized, assumes that g1 and g2 are not equal
+(define (negation? g1 g2) ;;* Assumes that g1 and g2 are normalized
   (cond
     ((true? g1)      (false? g2))
     ((false? g1)     (true? g2))
@@ -489,12 +514,16 @@
     ((stringo? g2)      1)
     ((numbero? g1)      (if (numbero? g2) (term-compare (numbero-t g1) (numbero-t g2)) -1))
     ((numbero? g2)      1)
+    ((pairo? g1)        (if (pairo? g2) (term-compare (pairo-t g1) (pairo-t g2)) -1))
+    ((pairo? g2)        1)
     ((not-symbolo? g1)  (if (not-symbolo? g2) (term-compare (not-symbolo-t g1) (not-symbolo-t g2)) -1))
     ((not-symbolo? g2)  1)
     ((not-stringo? g1)  (if (not-stringo? g2) (term-compare (not-stringo-t g1) (not-stringo-t g2)) -1))
     ((not-stringo? g2)  1)
     ((not-numbero? g1)  (if (not-numbero? g2) (term-compare (not-numbero-t g1) (not-numbero-t g2)) -1))
     ((not-numbero? g2)  1)
+    ((not-pairo? g1)    (if (not-pairo? g2) (term-compare (not-pairo-t g1) (not-pairo-t g2)) -1))
+    ((not-pairo? g2)    1)
     ((=/=? g1)          (cond
                           ((and (=/=? g2) (equal? (=/=-t1 g1) (=/=-t1 g2))) (term-compare (=/=-t2 g1) (=/=-t2 g2)))
                           ((=/=? g2) (term-compare (=/=-t1 g1) (=/=-t1 g2)))
@@ -536,12 +565,16 @@
                           ((=/=? g2) (term-compare (=/=-t1 g1) (=/=-t1 g2)))
                           (else -1)))
     ((=/=? g2)          1)
+    ((not-pairo?   g1)  (if (not-pairo? g2) (term-compare (not-pairo-t g1) (not-pairo-t g2)) -1))
+    ((not-pairo?   g2)  1)
     ((not-numbero? g1)  (if (not-numbero? g2) (term-compare (not-numbero-t g1) (not-numbero-t g2)) -1))
     ((not-numbero? g2)  1)
     ((not-stringo? g1)  (if (not-stringo? g2) (term-compare (not-stringo-t g1) (not-stringo-t g2)) -1))
     ((not-stringo? g2)  1)
     ((not-symbolo? g1)  (if (not-symbolo? g2) (term-compare (not-symbolo-t g1) (not-symbolo-t g2)) -1))
     ((not-symbolo? g2)  1)
+    ((pairo?   g1)      (if (pairo? g2) (term-compare (pairo-t g1) (pairo-t g2)) -1))
+    ((pairo?   g2)      1)
     ((numbero? g1)      (if (numbero? g2) (term-compare (numbero-t g1) (numbero-t g2)) -1))
     ((numbero? g2)      1)
     ((stringo? g1)      (if (stringo? g2) (term-compare (stringo-t g1) (stringo-t g2)) -1))

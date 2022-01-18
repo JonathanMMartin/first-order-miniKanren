@@ -245,21 +245,21 @@
 ;    (run 1 (q) (conj* (fresh (x) (== q (cons 1 x))) (forall (x) (=/= q (cons 1 x)))))
 ;    '())
 
-; (test 'ende-basic-11
-;    (run 1 (q) (forall (x) (=/= (cons x x) (cons 0 1))))
-;    '((_.0)))
+(test 'ende-basic-11
+   (run 1 (q) (forall (x) (=/= (cons x x) (cons 0 1))))
+   '((_.0)))
 
-; (test 'ende-basic-12
-;    (run 1 (q) (forall (x) (=/= (cons x x) (cons 1 1))))
-;    '())
+(test 'ende-basic-12
+   (run 1 (q) (forall (x) (=/= (cons x x) (cons 1 1))))
+   '())
 
-; (test 'ende-basic-13
-;    (run 1 (q) (forall (x) (=/= (cons x x) (cons q 1))))
-;    '())
+(test 'ende-basic-13
+   (run 1 (q) (forall (x) (=/= (cons x x) (cons q 1))))
+   '(#s(Ans (_.0) ((=/= ((_.0 1)))))))
 
-; (test 'ende-basic-14
-;    (run 1 (q) (fresh (a b) (== q (cons a b)) (forall (x) (=/= (cons x x) (cons a b))) ))
-;    '()) ;; _.0 _.1  _.0 =/= _.1
+(test 'ende-basic-14
+   (run 1 (q) (fresh (a b) (== q (cons a b)) (forall (x) (=/= (cons x x) (cons a b))) ))
+   '(#s(Ans ((_.0 . _.1)) ((=/= ((_.0 _.1)))))))
 
 ; (test 'ende-basic-15
 ;    (run 1 (q) (forall (z) (fresh (x y) (== (cons z y) x))))

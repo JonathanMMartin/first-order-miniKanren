@@ -3,11 +3,13 @@
   ==
   =/=
   symbolo
-  numbero
   stringo
+  numbero
+  pairo
   not-symbolo
-  not-numbero
   not-stringo
+  not-numbero
+  not-pairo
   imply
   universal
   normalize-goal
