@@ -336,4 +336,5 @@
     ((eq? pred symbol?) 'sym)
     ((eq? pred string?) 'str)
     ((eq? pred number?) 'num)
+    ((eq? pred pair?)   'pair)
     (error "Invalid type")))

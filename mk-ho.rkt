@@ -3,11 +3,13 @@
   ==
   =/=
   symbolo
-  numbero
   stringo
+  numbero
+  pairo
   not-symbolo
   not-stringo
   not-numbero
+  not-pairo
   
 
   define-relation
