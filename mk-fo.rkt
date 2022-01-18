@@ -9,7 +9,7 @@
   not-numbero
   not-stringo
   imply
-  forallo
+  universal
   normalize-goal
   disj
   conj

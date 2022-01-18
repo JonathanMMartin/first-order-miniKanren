@@ -15,7 +15,7 @@
   not-stringo
   not-numbero
 
-  existo
+  existential
 
   mplus
   bind
@@ -89,8 +89,8 @@
 
 
 
-(define (existo v g) (lambda (st) (pause (add-to-scope v 'e st) g)))
-(define (forallo v g) (lambda (st) (error "Higher order miniKanren cannot solve forall queries")))
+(define (existential v g) (lambda (st) (pause (add-to-scope v 'e st) g)))
+(define (universal v g) (lambda (st) (error "Higher order miniKanren cannot solve forall queries")))
 
 
 

@@ -97,27 +97,27 @@
    (run 1 (x) (forall (v w) (disj (conj (== x v) (== x w)) (=/= v w))))
    '())
 
-(test 'forall-exists-0
+(test 'forall-existential-0
    (run 1 (x) (forall (v) (fresh (u) (== v 1))))
    '())
 
-(test 'forall-exists-1
+(test 'forall-existential-1
    (run 1 (x) (forall (v) (fresh (u) (== u 1))))
    '((_.0)))
 
-(test 'forall-exists-2
+(test 'forall-existential-2
    (run 1 (x) (fresh (v) (forall (u) (== v u))))
    '())
 
-(test 'forall-exists-3
+(test 'forall-existential-3
    (run 1 (x) (fresh (v) (forall (u) (=/= v u))))
    '())
 
-(test 'forall-exists-4
+(test 'forall-existential-4
    (run 1 (x) (forall (v) (fresh (u) (=/= v u))))
    '((_.0)))
 
-(test 'forall-exists-5
+(test 'forall-existential-5
    (run 1 (x) (forall (v) (fresh (u) (== v u))))
    '((_.0)))
 
@@ -137,7 +137,7 @@
    (run 1 (x) (forall (v) (disj (not-symbolo v) (not-numbero v))))
    '((_.0)))
 
-(test 'forallo-disj-4
+(test 'universal-disj-4
    (run 1 (x) (forall (v) (disj (not-symbolo v) (disj (not-numbero v) (not-stringo v)))))
    '((_.0)))
 
@@ -169,7 +169,7 @@
    (run 1 (x) (forall (v) (conj (not-symbolo v) (not-numbero v))))
    '())
 
-(test 'forallo-conj-4
+(test 'universal-conj-4
    (run 1 (x) (forall (v) (conj (not-symbolo v) (conj (not-numbero v) (not-stringo v)))))
    '())
 
