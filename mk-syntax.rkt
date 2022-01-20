@@ -4,8 +4,8 @@
      (define (name param ...)
        (relate (lambda () (fresh () g ...)) `(,name name ,param ...))))))
 ;; Low-level goals
-(define succeed (== #t #t))
-(define fail    (== #f #t))
+(define succeed (true))
+(define fail    (false))
 (define-syntax conj*
   (syntax-rules ()
     ((_)                succeed)

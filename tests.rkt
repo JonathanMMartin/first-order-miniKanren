@@ -120,16 +120,23 @@
 (include "tests-forall.rkt")
 ; (include "tests-rewrite.rkt")
 
-; (display "\nRunning remaining tests")
-; (newline)
+; (include "tests-matcho-evalo.rkt")
 
-; (test 'appendo-0
-;   (run* (xs ys) (appendo xs ys '(a b c d)))
-;   '((()        (a b c d))
-;     ((a)       (b c d))
-;     ((a b)     (c d))
-;     ((a b c)   (d))
-;     ((a b c d) ())))
+(display "\nRunning remaining tests")
+(newline)
+
+(test 'appendo-
+  (run* (xs ys) (appendo xs ys '(a)))
+  '((()        (a))
+    ((a)       ())))
+
+(test 'appendo-0
+  (run* (xs ys) (appendo xs ys '(a b c d)))
+  '((()        (a b c d))
+    ((a)       (b c d))
+    ((a b)     (c d))
+    ((a b c)   (d))
+    ((a b c d) ())))
 
 ; (test 'appendo-1
 ;   (run* (q) (appendo '(a b c) '(d e) q))
