@@ -104,39 +104,39 @@
                  (printf "FAILURE\nEXPECTED: ~s\nACTUAL: ~s\n"
                          expected actual))))))))
 
-(include "tests-unify.rkt")
-(include "tests-disunify.rkt")
-(include "tests-symbolo.rkt")
-(include "tests-stringo.rkt")
-(include "tests-numbero.rkt")
-(include "tests-pairo.rkt")
-(include "tests-symbolo-numbero.rkt")
-(include "tests-not-symbolo.rkt")
-(include "tests-not-stringo.rkt")
-(include "tests-not-numbero.rkt")
-(include "tests-not-pairo.rkt")
-(include "tests-not-symbolo-not-numbero.rkt")
-(include "tests-implication.rkt")
-(include "tests-forall.rkt")
+; (include "tests-unify.rkt")
+; (include "tests-disunify.rkt")
+; (include "tests-symbolo.rkt")
+; (include "tests-stringo.rkt")
+; (include "tests-numbero.rkt")
+; (include "tests-pairo.rkt")
+; (include "tests-symbolo-numbero.rkt")
+; (include "tests-not-symbolo.rkt")
+; (include "tests-not-stringo.rkt")
+; (include "tests-not-numbero.rkt")
+; (include "tests-not-pairo.rkt")
+; (include "tests-not-symbolo-not-numbero.rkt")
+; (include "tests-implication.rkt")
+; (include "tests-forall.rkt")
 ; (include "tests-rewrite.rkt")
 
-; (include "tests-matcho-evalo.rkt")
+(include "tests-matcho-evalo.rkt")
 
-(display "\nRunning remaining tests")
-(newline)
+; (display "\nRunning remaining tests")
+; (newline)
 
-(test 'appendo-
-  (run* (xs ys) (appendo xs ys '(a)))
-  '((()        (a))
-    ((a)       ())))
+; (test 'appendo-
+;   (run* (xs ys) (appendo xs ys '(a)))
+;   '((()        (a))
+;     ((a)       ())))
 
-(test 'appendo-0
-  (run* (xs ys) (appendo xs ys '(a b c d)))
-  '((()        (a b c d))
-    ((a)       (b c d))
-    ((a b)     (c d))
-    ((a b c)   (d))
-    ((a b c d) ())))
+; (test 'appendo-0
+;   (run* (xs ys) (appendo xs ys '(a b c d)))
+;   '((()        (a b c d))
+;     ((a)       (b c d))
+;     ((a b)     (c d))
+;     ((a b c)   (d))
+;     ((a b c d) ())))
 
 ; (test 'appendo-1
 ;   (run* (q) (appendo '(a b c) '(d e) q))

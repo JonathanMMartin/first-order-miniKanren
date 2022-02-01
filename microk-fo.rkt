@@ -160,7 +160,8 @@
 
 (define (unfold g)
   (match g
-    ((disj g1 g2)       (disj (unfold g1) (unfold g2)))
+    ((disj g1 g2)       (if (decidable? g1) (disj g1 (unfold g2)) (disj (unfold g1) g2))) ;
+    ((disj g1 g2)       (disj (unfold g1) (unfold g2))) ;; overly eager? Unfold one side
     ((conj g1 g2)       (conj (unfold g1) (unfold g2)))
     ((imply g1 g2)      (imply (unfold g1) (unfold g2)))
     ((existential v h)  (existential v (unfold h)))
@@ -169,8 +170,8 @@
     (_                  g)))
 
 (define (simplify g)
-  (displayln g)
-  (newline)
+  ; (displayln g)
+  ; (newline)
   (let ((g (normalize-goal g)))
     (if (decidable? g)
         g
@@ -295,7 +296,7 @@
       ((existential? g)  (if (goal-use-var? (existential-g g) v) (existential v g) g))
       ((universal? g) (if (goal-use-var? (universal-g g) v)
                         (existential v g)
-                        (normalize-goal (negate-goal (normalize-goal (negate-goal g) DNF?)) DNF?)))
+                        (normalize-goal (negate-goal (normalize-goal (negate-goal g) DNF?)) DNF?))) ;;! Issue?
       ((disj? g)    (let* ((g1 (disj-g1 g)) 
                            (g2 (disj-g2 g))
                            (no-v-in-g1? (not (goal-use-var? g1 v)))
@@ -338,7 +339,7 @@
                         (error "Currently can't solve 2" g)
                         g))
       ((existential? g)  (if (goal-use-var? (existential-g g) v)
-                             (error "Currently can't solve 3" (universal v g)) 
+                             (error "Currently can't solve 3" g) 
                              g))
       ((universal? g) (if (goal-use-var? (universal-g g) v)
                           (if (decidable? g) (error "Currently can't solve 4" g) g)
