@@ -330,7 +330,7 @@
       ((=/=? g)   (let ((t1 (=/=-t1 g)) (t2 (=/=-t2 g)))
                     (cond
                       ((or (equal? t1 v) (equal? t2 v)) (false))
-                      ((or (term-use-var? t1 v) (term-use-var? t2 v)) (error "Currently can't solve 1" g))
+                      ((or (term-use-var? t1 v) (term-use-var? t2 v)) (true)) 
                       (else g))))
       
       ((or (typeo? g) (not-typeo? g)) (if (term-use-var? (typeo-t g) v) (false) g))
@@ -339,10 +339,10 @@
                         (error "Currently can't solve 2" g)
                         g))
       ((existential? g)  (if (goal-use-var? (existential-g g) v)
-                             (error "Currently can't solve 3" g) 
+                             (if (decidable? g) (error "Currently can't solve 3" g) (universal v g)) 
                              g))
       ((universal? g) (if (goal-use-var? (universal-g g) v)
-                          (if (decidable? g) (error "Currently can't solve 4" g) g)
+                          (if (decidable? g) (error "Currently can't solve 4" g) (universal v g))
                           (normalize-goal (negate-goal (normalize-goal (negate-goal g) DNF?)) DNF?)))
       ((disj? g)    (let* ((g1 (disj-g1 g)) 
                            (g2 (disj-g2 g))
@@ -352,8 +352,9 @@
                         ((and no-v-in-g1? no-v-in-g2?) (disj g1 g2))
                         (no-v-in-g1? (normalize-goal (disj g1 (universal v g2)) DNF?))
                         (no-v-in-g2? (normalize-goal (disj g2 (universal v g1)) DNF?))
-                        ((and (==? g1) (==? g2)) (false))
-                        ((and (==? g1) (disj? g2) (==? (disj-g1 g2))) (false))
+                        ((contains-equality-on-v? g v) (false))
+                        ; ((and (==? g1) (==? g2)) (false))
+                        ; ((and (==? g1) (disj? g2) (==? (disj-g1 g2))) (false))
                         ((and (typeo? g1) (typeo? g2)) (false))
                         ((and (typeo? g1) (disj? g2) (typeo? (disj-g1 g2))) (false))  ;; TODO if we add undecideable, could it be that this isn't false?
                         ((decidable? g) (normalize-goal (negate-goal (normalize-goal (negate-goal (universal v g)) DNF?)) DNF?)) ;;! WARNING: this may cause infinite recursion
@@ -511,7 +512,16 @@
     ((universal v h)    (and (existential? g2) (negation? h (substitute-term (existential-g g2) (existential-v g2) v))))
     ((relate _ _)       #f)
     (_                  (and (not (or (disj/conj? g2) (imply? g2) (existential? g2) (universal? g2) (relate? g2))) (goal=? g1 (negate-goal g2))))))
-      
+
+(define (contains-equality-on-v? g v)
+  (match g
+    ((== t1 t2)   (or (equal? t1 v) (equal? t2 v)))
+    ((conj g1 g2) (or (contains-equality-on-v? g1 v) (contains-equality-on-v? g2 v)))
+    ((disj g1 g2) (and (contains-equality-on-v? g1 v) (contains-equality-on-v? g2 v)))    
+    ((existential _ h) (contains-equality-on-v? h v))
+    ((universal _ h)  (contains-equality-on-v? h v))
+    (_ #f)))
+
 (define (goal<? g1 g2)
   (eqv? (goal-compare g1 g2) -1))
 
