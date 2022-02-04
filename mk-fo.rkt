@@ -6,10 +6,12 @@
   stringo
   numbero
   pairo
+  listo
   not-symbolo
   not-stringo
   not-numbero
   not-pairo
+  not-listo
   imply
   universal
   normalize-goal

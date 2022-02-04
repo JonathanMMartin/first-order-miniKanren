@@ -337,4 +337,5 @@
     ((eq? pred string?) 'str)
     ((eq? pred number?) 'num)
     ((eq? pred pair?)   'pair)
+    ((eq? pred list?)   'list)
     (error "Invalid type")))
