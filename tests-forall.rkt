@@ -305,9 +305,13 @@
    (run 1 (q) (forall (v) (appendo v '() '())))
    '())
 
-(test 'undeciable-4
+(test 'undeciable-4a 
    (run 1 (q) (forall (v) (appendo '() v v)))
    '((_.0)))
+
+; (test 'undeciable-4b 
+;    (run 1 (q) (forall (v) (appendo q v v)))
+;    '(()))
 
 (test 'undeciable-5a
    (run 1 (q) (forall (v) (appendo v '() v)))
@@ -319,6 +323,10 @@
 
 (test 'undeciable-5c
    (run 1 (q) (forall (v) (imply (fresh (a) (== v (cons a '()))) (appendo v '() v))))
+   '((_.0)))
+
+(test 'undeciable-5d
+   (run 1 (q) (forall (v) (imply (listo v) (appendo v '() v))))
    '((_.0)))
 
 (test 'undeciable-6

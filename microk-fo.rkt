@@ -275,15 +275,23 @@
                 ((negation? g1 g2) (false))     ;; A and ~A = False
                 (else (conj g1 g2))))))))
 
+(define (replace-implication ant con)
+  (if (conj? ant)
+      (replace-implication (conj-g2 ant) (replace-assumption-with-true (conj-g1 ant) con))
+      (replace-assumption-with-true ant con)))
+
 (define (normalize-imply g1 g2 [DNF? #t])
   (let ((g1 (normalize-goal g1 DNF?)))
     (match g1
       ((true) (normalize-goal g2 DNF?))     ;; True -> A  = A
       ((false) (true))                      ;; False -> A = True
-      ((universal v g) (normalize-goal (existential v (imply g (normalize-goal g2 DNF?))) DNF?)) ;; (forall v A) -> B = exists v (A -> B)
-      (_       (let ((g1 (normalize-goal (negate-goal g1) DNF?)) ;;! relate issue?
-                     (g2 (normalize-goal g2 DNF?)))
-                  (normalize-goal (disj g1 g2) DNF?))))))  ;; A -> B = ~A or B 
+      (_       (let* ((g2 (normalize-goal g2 DNF?))
+                      (g2 (normalize-goal (replace-implication g1 g2) DNF?)))
+                  (cond
+                    ((true? g2) (true))
+                    ((universal? g1) (normalize-goal (existential (universal-v g1) (imply (universal-g g1) g2)) DNF?)) ;; (forall v A) -> B = exists v (A -> B)
+                    (else (let ((g1 (normalize-goal (negate-goal g1) DNF?))) ;;! relate issue?
+                      (normalize-goal (disj g1 g2) DNF?)))))))))  ;; A -> B = ~A or B
 
 (define (normalize-existential v g [DNF? #t])
   (let ((g (normalize-goal g DNF?)))
@@ -329,52 +337,61 @@
       (else         (existential v g)))))
 
 (define (normalize-universal v g [DNF? #t])
-  (let ((g (normalize-goal g DNF?)))
-    (cond
-      ((true? g)  (true))
-      ((false? g) (false))
-      ((==? g)    (if (or (term-use-var? (==-t1 g) v) (term-use-var? (==-t2 g) v)) (false) g))
-      ((=/=? g)   (let ((t1 (=/=-t1 g)) (t2 (=/=-t2 g)))
-                    (cond
-                      ((or (equal? t1 v) (equal? t2 v)) (false))
-                      ((or (term-use-var? t1 v) (term-use-var? t2 v)) (true)) 
-                      (else g))))
-      
-      ((or (typeo? g) (not-typeo? g)) (if (term-use-var? (typeo-t g) v) (false) g))
-      
-      ((imply? g)   (if (or (goal-use-var? (imply-g1 g) v) (goal-use-var? (imply-g2 g) v))
-                        (error "Currently can't solve 2" g)
-                        g))
-      ((existential? g)  (if (goal-use-var? (existential-g g) v)
-                             (if (decidable? g) (error "Currently can't solve 3" g) (universal v g)) 
-                             g))
-      ((universal? g) (if (goal-use-var? (universal-g g) v)
-                          (if (decidable? g) (error "Currently can't solve 4" g) (universal v g))
-                          (normalize-goal (negate-goal (normalize-goal (negate-goal g) DNF?)) DNF?)))
-      ((disj? g)    (let* ((g1 (disj-g1 g)) 
-                           (g2 (disj-g2 g))
-                           (no-v-in-g1? (not (goal-use-var? g1 v)))
-                           (no-v-in-g2? (not (goal-use-var? g2 v))))
-                      (cond
-                        ((and no-v-in-g1? no-v-in-g2?) (disj g1 g2))
-                        (no-v-in-g1? (normalize-goal (disj g1 (universal v g2)) DNF?))
-                        (no-v-in-g2? (normalize-goal (disj g2 (universal v g1)) DNF?))
-                        ((contains-equality-on-v? g v) (false))
-                        ((contains-typeo-on-v? g v)    (false))
-                        ; ((and (typeo? g1) (typeo? g2)) (false))
-                        ; ((and (typeo? g1) (disj? g2) (typeo? (disj-g1 g2))) (false))  ;; TODO if we add undecideable, could it be that this isn't false?
-                        ((decidable? g) (normalize-goal (negate-goal (normalize-goal (negate-goal (universal v g)) DNF?)) DNF?)) ;;! WARNING: this may cause infinite recursion
-                        (else (error "Currently can't solve 5" g))))) ;(simplify (unfold g))))))   
-      ((conj? g)    (let* ((g1 (conj-g1 g))
-                           (g2 (conj-g2 g))
-                           (no-v-in-g1? (not (goal-use-var? g1 v)))
-                           (no-v-in-g2? (not (goal-use-var? g2 v))))
-                      (cond
-                        ((and no-v-in-g1? no-v-in-g2?) (conj g1 g2))
-                        (no-v-in-g1? (normalize-goal (conj g1 (universal v g2)) DNF?))
-                        (no-v-in-g2? (normalize-goal (conj g2 (universal v g1)) DNF?))
-                        (else (normalize-goal (conj (universal v g1) (universal v g2)) DNF?)))))
-      (else         (universal v g)))))
+  (cond
+    ((and (imply? g) (listo? (imply-g1 g)) (equal? v (listo-t (imply-g1 g))) (relate? (imply-g2 g))) ;; Induction rewrite
+      (let* ((a (var/new 'a))
+             (b (var/new 'b))
+             (antecedent (normalize-goal (imply-g2 g) DNF?))
+             (consequent (universal a (existential b (conj (== b (cons a v)) (substitute-term antecedent v b DNF?))))) ;;! need some work, how do we introduct the new logic vars a and b
+             (base-case (substitute-term antecedent v '() DNF?))
+             (inductive-step (imply antecedent (unfold consequent))))
+        (normalize-goal (conj base-case (universal v inductive-step)) DNF?)))
+    (else (let ((g (normalize-goal g DNF?)))
+            (cond
+              ((true? g)  (true))
+              ((false? g) (false))
+              ((==? g)    (if (or (term-use-var? (==-t1 g) v) (term-use-var? (==-t2 g) v)) (false) g))
+              ((=/=? g)   (let ((t1 (=/=-t1 g)) (t2 (=/=-t2 g)))
+                            (cond
+                              ((or (equal? t1 v) (equal? t2 v)) (false))
+                              ((or (term-use-var? t1 v) (term-use-var? t2 v)) (true)) 
+                              (else g))))
+              
+              ((or (typeo? g) (not-typeo? g)) (if (term-use-var? (typeo-t g) v) (false) g))
+              
+              ((imply? g)   (if (or (goal-use-var? (imply-g1 g) v) (goal-use-var? (imply-g2 g) v))
+                                (error "Currently can't solve 2" g)
+                                g))
+              ((existential? g)  (if (goal-use-var? (existential-g g) v)
+                                    (if (decidable? g) (error "Currently can't solve 3" g) (universal v g)) 
+                                    g))
+              ((universal? g) (if (goal-use-var? (universal-g g) v)
+                                  (if (decidable? g) (error "Currently can't solve 4" g) (universal v g))
+                                  (normalize-goal (negate-goal (normalize-goal (negate-goal g) DNF?)) DNF?)))
+              ((disj? g)    (let* ((g1 (disj-g1 g)) 
+                                  (g2 (disj-g2 g))
+                                  (no-v-in-g1? (not (goal-use-var? g1 v)))
+                                  (no-v-in-g2? (not (goal-use-var? g2 v))))
+                              (cond
+                                ((and no-v-in-g1? no-v-in-g2?) (disj g1 g2))
+                                (no-v-in-g1? (normalize-goal (disj g1 (universal v g2)) DNF?))
+                                (no-v-in-g2? (normalize-goal (disj g2 (universal v g1)) DNF?))
+                                ((contains-equality-on-v? g v) (false))
+                                ((contains-typeo-on-v? g v)    (false))
+                                ; ((and (typeo? g1) (typeo? g2)) (false))
+                                ; ((and (typeo? g1) (disj? g2) (typeo? (disj-g1 g2))) (false))  ;; TODO if we add undecideable, could it be that this isn't false?
+                                ((decidable? g) (normalize-goal (negate-goal (normalize-goal (negate-goal (universal v g)) DNF?)) DNF?)) ;;! WARNING: this may cause infinite recursion
+                                (else (error "Currently can't solve 5" g))))) ;(simplify (unfold g))))))   
+              ((conj? g)    (let* ((g1 (conj-g1 g))
+                                  (g2 (conj-g2 g))
+                                  (no-v-in-g1? (not (goal-use-var? g1 v)))
+                                  (no-v-in-g2? (not (goal-use-var? g2 v))))
+                              (cond
+                                ((and no-v-in-g1? no-v-in-g2?) (conj g1 g2))
+                                (no-v-in-g1? (normalize-goal (conj g1 (universal v g2)) DNF?))
+                                (no-v-in-g2? (normalize-goal (conj g2 (universal v g1)) DNF?))
+                                (else (normalize-goal (conj (universal v g1) (universal v g2)) DNF?)))))
+              (else         (universal v g)))))))
 
 (define (combine-diseqs g)
   (match g
@@ -513,6 +530,7 @@
   (match g1
     ((existential v h)  (and (existential? g2) (goal=? h (substitute-term (existential-g g2) (existential-v g2) v))))
     ((universal v h)    (and (universal? g2) (goal=? h (substitute-term (universal-g g2) (universal-v g2) v))))
+    ((relate _ des)     (and (relate? g2) (equal? (car des) (car (relate-description g2))) (equal? (cdr (cdr des)) (cdr (cdr (relate-description g2))))))
     (_                  (equal? g1 g2))))
 
 (define (negation? g1 g2) ;;* Assumes that g1 and g2 are normalized
@@ -541,6 +559,17 @@
     ((existential _ h) (contains-typeo-on-v? h v))
     ((universal _ h)  (contains-typeo-on-v? h v))
     (_  (and (typeo? g) (equal? (typeo-t g) v)))))
+
+(define (replace-assumption-with-true ant con)
+  (if (goal=? ant con)
+      (true)
+      (match con
+        ((disj g1 g2)       (disj (replace-assumption-with-true ant g1) (replace-assumption-with-true ant g2)))
+        ((conj g1 g2)       (conj (replace-assumption-with-true ant g1) (replace-assumption-with-true ant g2)))
+        ((imply g1 g2)      (imply (replace-assumption-with-true ant g1) (replace-assumption-with-true ant g2)))
+        ((existential v h)  (existential v (replace-assumption-with-true ant h)))
+        ((universal v h)    (universal v (replace-assumption-with-true ant h)))
+        (_                  con))))
 
 (define (goal<? g1 g2)
   (eqv? (goal-compare g1 g2) -1))
