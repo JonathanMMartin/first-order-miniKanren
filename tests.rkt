@@ -120,6 +120,7 @@
 (include "tests-not-symbolo-not-numbero.rkt")
 (include "tests-implication.rkt")
 (include "tests-forall.rkt")
+(include "tests-forall-undecidable.rkt")
 ; (include "tests-rewrite.rkt")
 
 ; (include "tests-matcho-evalo.rkt")
