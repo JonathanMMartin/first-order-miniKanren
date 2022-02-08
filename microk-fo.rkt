@@ -166,7 +166,6 @@
 
 (define (unfold g)
   (match g
-    ((disj g1 g2)       (if (decidable? g1) (disj g1 (unfold g2)) (disj (unfold g1) g2))) ;
     ((disj g1 g2)       (disj (unfold g1) (unfold g2))) ;; overly eager? Unfold one side
     ((conj g1 g2)       (conj (unfold g1) (unfold g2)))
     ((imply g1 g2)      (imply (unfold g1) (unfold g2)))
@@ -175,13 +174,18 @@
     ((relate thunk _)   (thunk))
     (_                  g)))
 
-(define (simplify g)
+(define (simplify g) ;; Change this to do something different if after normalaization we get a disj that has at least one part deciable
   ; (displayln g)
   ; (newline)
   (let ((g (normalize-goal g)))
-    (if (decidable? g)
-        g
-        (simplify (unfold g)))))
+    (cond
+      ((decidable? g) g)
+      ((and (disj? g) (decidable? (disj-g1 g)))
+        (disj (disj-g1 g) (disj-g2 g)))
+      ((and (disj? g) (decidable? (disj-g2 g)))
+        (disj (disj-g2 g) (disj-g1 g)))
+      (else
+        (simplify (unfold g))))))
 
 (define (normalize-goal g [DNF? #t])
   (match g
@@ -320,7 +324,7 @@
                         ((and no-v-in-g1? no-v-in-g2?) g)
                         (no-v-in-g1? (normalize-goal (disj g1 (existential v g2)) DNF?))
                         (no-v-in-g2? (normalize-goal (disj g2 (existential v g1)) DNF?))
-                        (else (existential v g)))))
+                        (else (normalize-goal (disj (existential v g1) (existential v g2)) DNF?)))))
       ((conj? g)    (let* ((g1 (conj-g1 g))
                            (g2 (conj-g2 g))
                            (no-v-in-g1? (not (goal-use-var? g1 v)))
@@ -331,21 +335,25 @@
                         (no-v-in-g2? (normalize-goal (conj g2 (existential v g1)) DNF?))
                         ; ((and (=/=? g1) (=/=? g2)) (true))
                         ; ((and (=/=? g1) (conj? g2) (=/=? (conj-g1 g2))) (true))
-                        ((and (not-typeo? g1) (not-typeo? g2) (equal? (typeo-t g1) (typeo-t g2))) (true))
-                        ((and (not-typeo? g1) (conj? g2) (not-typeo? (conj-g1 g2)) (equal? (typeo-t g1) (typeo-t (conj-g1 g2))) (true)))
+                        ; ((and (not-typeo? g1) (not-typeo? g2) (equal? (typeo-t g1) (typeo-t g2))) (true))
+                        ; ((and (not-typeo? g1) (conj? g2) (not-typeo? (conj-g1 g2)) (equal? (typeo-t g1) (typeo-t (conj-g1 g2))) (true)))
+                        ((and DNF? (==? (conj-g1 g)) (disj? (conj-g2 g))) (normalize-goal (disj (existential v (conj (conj-g1 g) (disj-g1 (conj-g2 g)))) (existential v (conj (conj-g1 g) (disj-g2 (conj-g2 g))))) DNF?))
                         (else (existential v g)))))
       (else         (existential v g)))))
 
-(define (normalize-universal v g [DNF? #t])
+(define (normalize-universal v g [DNF? #t] [induction? #t])
   (cond
-    ((and (imply? g) (listo? (imply-g1 g)) (equal? v (listo-t (imply-g1 g))) (relate? (imply-g2 g))) ;; Induction rewrite
-      (let* ((a (var/new 'a))
-             (b (var/new 'b))
-             (antecedent (normalize-goal (imply-g2 g) DNF?))
-             (consequent (universal a (existential b (conj (== b (cons a v)) (substitute-term antecedent v b DNF?))))) ;;! need some work, how do we introduct the new logic vars a and b
-             (base-case (substitute-term antecedent v '() DNF?))
-             (inductive-step (imply antecedent (unfold consequent))))
-        (normalize-goal (conj base-case (universal v inductive-step)) DNF?)))
+    ((and induction? (imply? g)) ;; List induction rewrite rules
+      (let* ((g1 (normalize-goal (imply-g1 g) DNF?))
+             (g2 (normalize-goal (imply-g2 g) DNF?)))
+        (if (and (listo? g1) (equal? v (listo-t g1)))
+            (let* ((a (var/new 'a))
+                   (base-case (substitute-term g2 v '()))
+                   (antecedent g2)
+                   (consequent (universal a (substitute-term g2 v (cons a v) DNF?)))
+                   (inductive-step (universal v (imply antecedent (unfold consequent)))))
+              (normalize-goal (conj base-case inductive-step) DNF?))
+            (normalize-universal v (imply g1 g2) DNF? #f))))
     (else (let ((g (normalize-goal g DNF?)))
             (cond
               ((true? g)  (true))
@@ -360,13 +368,13 @@
               ((or (typeo? g) (not-typeo? g)) (if (term-use-var? (typeo-t g) v) (false) g))
               
               ((imply? g)   (if (or (goal-use-var? (imply-g1 g) v) (goal-use-var? (imply-g2 g) v))
-                                (error "Currently can't solve 2" g)
+                                (error "Currently can't solve 1" g)
                                 g))
               ((existential? g)  (if (goal-use-var? (existential-g g) v)
-                                    (if (decidable? g) (error "Currently can't solve 3" g) (universal v g)) 
+                                    (if (decidable? g) (error "Currently can't solve 2" g) (universal v g)) 
                                     g))
               ((universal? g) (if (goal-use-var? (universal-g g) v)
-                                  (if (decidable? g) (error "Currently can't solve 4" g) (universal v g))
+                                  (if (decidable? g) (error "Currently can't solve 3" g) (universal v g))
                                   (normalize-goal (negate-goal (normalize-goal (negate-goal g) DNF?)) DNF?)))
               ((disj? g)    (let* ((g1 (disj-g1 g)) 
                                   (g2 (disj-g2 g))
@@ -377,11 +385,9 @@
                                 (no-v-in-g1? (normalize-goal (disj g1 (universal v g2)) DNF?))
                                 (no-v-in-g2? (normalize-goal (disj g2 (universal v g1)) DNF?))
                                 ((contains-equality-on-v? g v) (false))
-                                ((contains-typeo-on-v? g v)    (false))
-                                ; ((and (typeo? g1) (typeo? g2)) (false))
-                                ; ((and (typeo? g1) (disj? g2) (typeo? (disj-g1 g2))) (false))  ;; TODO if we add undecideable, could it be that this isn't false?
+                                ((contains-typeo-on-v? g v #f) (false))
                                 ((decidable? g) (normalize-goal (negate-goal (normalize-goal (negate-goal (universal v g)) DNF?)) DNF?)) ;;! WARNING: this may cause infinite recursion
-                                (else (error "Currently can't solve 5" g))))) ;(simplify (unfold g))))))   
+                                (else (error "Currently can't solve 4" g))))) ;(simplify (unfold g))))))   
               ((conj? g)    (let* ((g1 (conj-g1 g))
                                   (g2 (conj-g2 g))
                                   (no-v-in-g1? (not (goal-use-var? g1 v)))
@@ -391,6 +397,8 @@
                                 (no-v-in-g1? (normalize-goal (conj g1 (universal v g2)) DNF?))
                                 (no-v-in-g2? (normalize-goal (conj g2 (universal v g1)) DNF?))
                                 (else (normalize-goal (conj (universal v g1) (universal v g2)) DNF?)))))
+              ((and (relate? g) (equal? 'appendo (car (relate-description g))) (var? (car (cdr (cdr (relate-description g))))))
+                            (displayln "AHHHHH") (normalize-goal (universal v (imply (listo (car (cdr (cdr (relate-description g))))) g))))
               (else         (universal v g)))))))
 
 (define (combine-diseqs g)
@@ -552,13 +560,15 @@
     ((universal _ h)  (contains-equality-on-v? h v))
     (_ #f)))
 
-(define (contains-typeo-on-v? g v)
+(define (contains-typeo-on-v? g v [not-type? #f])
   (match g
-    ((conj g1 g2) (or (contains-typeo-on-v? g1 v) (contains-typeo-on-v? g2 v)))
-    ((disj g1 g2) (and (contains-typeo-on-v? g1 v) (contains-typeo-on-v? g2 v)))
-    ((existential _ h) (contains-typeo-on-v? h v))
-    ((universal _ h)  (contains-typeo-on-v? h v))
-    (_  (and (typeo? g) (equal? (typeo-t g) v)))))
+    ((conj g1 g2) (or (contains-typeo-on-v? g1 v not-type?) (contains-typeo-on-v? g2 v not-type?)))
+    ((disj g1 g2) (and (contains-typeo-on-v? g1 v not-type?) (contains-typeo-on-v? g2 v not-type?)))
+    ((existential _ h) (contains-typeo-on-v? h v not-type?))
+    ((universal _ h)  (contains-typeo-on-v? h v not-type?))
+    (_  (if not-type?
+            (and (not-typeo? g) (equal? (typeo-t g) v))
+            (and (typeo? g) (equal? (typeo-t g) v))))))
 
 (define (replace-assumption-with-true ant con)
   (if (goal=? ant con)
