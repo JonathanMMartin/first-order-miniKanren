@@ -37,6 +37,7 @@
 (struct disj        (g1 g2)                  #:prefab)
 (struct conj        (g1 g2)                  #:prefab)
 (struct relate      (thunk description)      #:prefab)
+(struct not-relate  (thunk description)      #:prefab)
 (struct ==          (t1 t2)                  #:prefab)
 (struct =/=         (t1 t2)                  #:prefab)
 (struct symbolo     (t)                      #:prefab)
@@ -69,6 +70,8 @@
     ((imply? g)       (conj (imply-g1 g) (negate-goal (imply-g2 g))))
     ((existential? g) (universal (existential-v g) (negate-goal (existential-g g))))
     ((universal? g)   (existential (universal-v g) (negate-goal (universal-g g))))
+    ((relate? g)      (not-relate (relate-thunk g) (relate-description g)))
+    ((not-relate? g)  (relate (not-relate-thunk g) (not-relate-description g)))
     (else             (error "Unnegateable goal" g))))
 
 (define (mature? s) (or (not s) (pair? s)))
@@ -87,6 +90,8 @@
      (step (bind (pause st g1) g2)))
     ((relate thunk _)
      (pause st (thunk)))
+    ((not-relate thunk _)
+     (pause st (negate-goal (thunk))))
     ((== t1 t2) (state->stream (unify t1 t2 st)))
     ((=/= t1 t2) (state->stream (disunify t1 t2 st)))
     ((symbolo t) (state->stream (typify t symbol? st)))
@@ -138,6 +143,7 @@
     ((existential? g)  (decidable? (existential-g g)))
     ((universal? g)    (decidable? (universal-g g)))
     ((relate? g)       #f)
+    ((not-relate? g)   #f)
     (else              #f)))
 
 (define (normalize-decidable g [DNF? #t])
@@ -166,13 +172,14 @@
 
 (define (unfold g)
   (match g
-    ((disj g1 g2)       (disj (unfold g1) (unfold g2))) ;; overly eager? Unfold one side
-    ((conj g1 g2)       (conj (unfold g1) (unfold g2)))
-    ((imply g1 g2)      (imply (unfold g1) (unfold g2)))
-    ((existential v h)  (existential v (unfold h)))
-    ((universal v h)    (universal v (unfold h)))
-    ((relate thunk _)   (thunk))
-    (_                  g)))
+    ((disj g1 g2)         (disj (unfold g1) (unfold g2))) ;; overly eager? Unfold one side
+    ((conj g1 g2)         (conj (unfold g1) (unfold g2)))
+    ((imply g1 g2)        (imply (unfold g1) (unfold g2)))
+    ((existential v h)    (existential v (unfold h)))
+    ((universal v h)      (universal v (unfold h)))
+    ((relate thunk _)     (thunk))
+    ((not-relate thunk _) (negate-goal (thunk)))
+    (_                    g)))
 
 (define (simplify g) ;; Change this to do something different if after normalaization we get a disj that has at least one part deciable
   ; (displayln g)
@@ -295,7 +302,7 @@
                     ((true? g2) (true))
                     ((universal? g1) (normalize-goal (existential (universal-v g1) (imply (universal-g g1) g2)) DNF?)) ;; (forall v A) -> B = exists v (A -> B)
                     ((existential? g1) (normalize-goal (universal (existential-v g1) (imply (existential-g g1) g2)) DNF?)) ;; (forall v A) -> B = exists v (A -> B)
-                    (else (let ((g1 (normalize-goal (negate-goal g1) DNF?))) ;;! relate issue?
+                    (else (let ((g1 (normalize-goal (negate-goal g1) DNF?)))
                       (normalize-goal (disj g1 g2) DNF?)))))))))  ;; A -> B = ~A or B
 
 (define (normalize-existential v g [DNF? #t])
@@ -316,7 +323,7 @@
       ((existential? g)  (if (goal-use-var? (existential-g g) v) (existential v g) g))
       ((universal? g) (if (goal-use-var? (universal-g g) v)
                         (existential v g)
-                        (normalize-goal (negate-goal (normalize-goal (negate-goal g) DNF?)) DNF?))) ;;! Issue?
+                        (normalize-goal (negate-goal (normalize-goal (negate-goal g) DNF?)) DNF?))) ;;! Infinite recursion?
       ((disj? g)    (let* ((g1 (disj-g1 g)) 
                            (g2 (disj-g2 g))
                            (no-v-in-g1? (not (goal-use-var? g1 v)))
@@ -486,6 +493,7 @@
     ((existential _ h)  (goal-use-var? h v))
     ((universal _ h)    (goal-use-var? h v))
     ((relate _ des)     (term-use-var? des v))
+    ((not-relate _ des) (term-use-var? des v))
     (_                  (if (or (typeo? g) (not-typeo? g))
                             (term-use-var? (typeo-t g) v)
                             (error "goal-use-var?: Can't check goal" g)))))
@@ -503,6 +511,7 @@
     ((existential q h)  (normalize-goal (existential q (substitute-term h v term DNF?))))
     ((universal q h)    (normalize-goal (universal q (substitute-term h v term DNF?))))
     ((relate _ des)     (if (goal-use-var? g v) (apply (car des) (map (lambda (arg) (if (equal? arg v) term arg)) (cdr (cdr des)))) g))
+    ((not-relate _ des) (if (goal-use-var? g v) (negate-goal (apply (car des) (map (lambda (arg) (if (equal? arg v) term arg)) (cdr (cdr des))))) g))
     (_                  (if (or (typeo? g) (not-typeo? g))
                             (normalize-goal (type->goal (if (equal? (typeo-t g) v) term (typeo-t g)) (typeo->type? g) (not-typeo? g)))
                             (error "substitute-term: Coudln't parse goal" g))))) 
@@ -541,6 +550,7 @@
     ((existential v h)  (and (existential? g2) (goal=? h (substitute-term (existential-g g2) (existential-v g2) v))))
     ((universal v h)    (and (universal? g2) (goal=? h (substitute-term (universal-g g2) (universal-v g2) v))))
     ((relate _ des)     (and (relate? g2) (equal? (car des) (car (relate-description g2))) (equal? (cdr (cdr des)) (cdr (cdr (relate-description g2))))))
+    ((not-relate _ des) (and (not-relate? g2) (equal? (car des) (car (not-relate-description g2))) (equal? (cdr (cdr des)) (cdr (cdr (not-relate-description g2))))))
     (_                  (equal? g1 g2))))
 
 (define (negation? g1 g2) ;;* Assumes that g1 and g2 are normalized
@@ -550,7 +560,7 @@
     ((imply h1 h2)      (and (imply? g2) (goal=? h1 (imply-g1 g2)) (negation? h2 (imply-g2 g2))))
     ((existential v h)  (and (universal? g2) (negation? h (substitute-term (universal-g g2) (universal-v g2) v))))
     ((universal v h)    (and (existential? g2) (negation? h (substitute-term (existential-g g2) (existential-v g2) v))))
-    ((relate _ _)       #f)
+    ((relate _ _)       (and (not-relate? g2) (goal=? g1 (negate-goal g2))))
     (_                  (and (not (or (disj/conj? g2) (imply? g2) (existential? g2) (universal? g2) (relate? g2))) (goal=? g1 (negate-goal g2))))))
 
 (define (contains-equality-on-v? g v)
@@ -650,6 +660,8 @@
     ((disj? g2)         1)
     ((relate? g1)       (if (relate? g2) (term-compare (cdr (relate-description g1)) (cdr (relate-description g2))) -1))
     ((relate? g2)       1)
+    ((not-relate? g1)   (if (not-relate? g2) (term-compare (cdr (not-relate-description g1)) (cdr (not-relate-description g2))) -1))
+    ((not-relate? g2)   1)
     (else               0)))
 
 (define (goal-diseq-first-compare g1 g2)
