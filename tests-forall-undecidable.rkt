@@ -35,6 +35,14 @@
 
 (test 'undeciable-5b-1
    (run 1 (q) (forall (v) (fresh (a) (imply (== v (cons a '())) (appendo v q v)))))
+   '((_.0)))
+
+(test 'undeciable-5b-1.5
+   (run 1 (q) (forall (v) (forall (a) (=/= v (cons a '())))))
+   '())
+
+(test 'undeciable-5b-2
+   (run 1 (q) (forall (v) (forall (a) (imply (== v (cons a '())) (appendo v q v)))))
    '((())))
 
 (test 'undeciable-5c
