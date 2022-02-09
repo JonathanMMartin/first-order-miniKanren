@@ -45,19 +45,19 @@
    (run 1 (q) (forall (v) (imply (fresh (a) (== v (cons a '()))) (appendo v q v))))
    '((())))
 
-(test 'undeciable-5d
-   (run 1 (q) (forall (v) (imply (listo v) (appendo v '() v))))
-   '((_.0)))
+; (test 'undeciable-5d
+;    (run 1 (q) (forall (v) (imply (listo v) (appendo v '() v))))
+;    '((_.0)))
 
-(test 'undeciable-6
-   (run 1 (q) (forall (v) (appendo v v '())))
-   '())
+; (test 'undeciable-6
+;    (run 1 (q) (forall (v) (appendo v v '())))
+;    '())
 
-(test 'undeciable-7
-   (run 1 (q) (forall (v) (appendo v v v)))
-   '())
+; (test 'undeciable-7
+;    (run 1 (q) (forall (v) (appendo v v v)))
+;    '())
 
-(test 'undeciable-8
-   (run 1 (q) (forall (x y z) (appendo x y z)))
-   '())
+; (test 'undeciable-8
+;    (run 1 (q) (forall (x y z) (appendo x y z)))
+;    '())
 

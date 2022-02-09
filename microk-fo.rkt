@@ -369,7 +369,7 @@
               ((=/=? g)   (let ((t1 (=/=-t1 g)) (t2 (=/=-t2 g)))
                             (cond
                               ((or (equal? t1 v) (equal? t2 v)) (false))
-                              ((or (term-use-var? t1 v) (term-use-var? t2 v)) (true)) 
+                              ;((or (term-use-var? t1 v) (term-use-var? t2 v)) (true)) 
                               (else g))))
               
               ((or (typeo? g) (not-typeo? g)) (if (term-use-var? (typeo-t g) v) (false) g))
@@ -380,9 +380,19 @@
               ((existential? g)  (if (goal-use-var? (existential-g g) v)
                                     (if (decidable? g) (error "Currently can't solve 2" g) (universal v g)) 
                                     g))
-              ((universal? g) (if (goal-use-var? (universal-g g) v)
-                                  (if (decidable? g) (error "Currently can't solve 3" g) (universal v g))
-                                  (normalize-goal (negate-goal (normalize-goal (negate-goal g) DNF?)) DNF?)))
+              ((universal? g) (let* ((h (universal-g g))
+                                     (no-v-in-h? (not (goal-use-var? h v))))
+                                (cond
+                                  (no-v-in-h? (normalize-goal (negate-goal (normalize-goal (negate-goal h) DNF?)) DNF?))
+                                  ((contains-equality-on-v? h v) (false))
+                                  ((contains-disequality-on-v? h v) (false))
+                                  ((decidable? g) (error "Currently can't solve 3" g))
+                                  (else (universal v g)))))
+              
+                              ; (if (goal-use-var? (universal-g g) v)
+                                  
+                              ;     (if (decidable? g) (error "Currently can't solve 3" g) (universal v g))
+                              ;     (normalize-goal (negate-goal (normalize-goal (negate-goal g) DNF?)) DNF?)))
               ((disj? g)    (let* ((g1 (disj-g1 g)) 
                                   (g2 (disj-g2 g))
                                   (no-v-in-g1? (not (goal-use-var? g1 v)))
@@ -404,8 +414,8 @@
                                 (no-v-in-g1? (normalize-goal (conj g1 (universal v g2)) DNF?))
                                 (no-v-in-g2? (normalize-goal (conj g2 (universal v g1)) DNF?))
                                 (else (normalize-goal (conj (universal v g1) (universal v g2)) DNF?)))))
-              ((and (relate? g) (equal? 'appendo (car (relate-description g))) (var? (car (cdr (cdr (relate-description g))))))
-                            (displayln "AHHHHH") (normalize-goal (universal v (imply (listo (car (cdr (cdr (relate-description g))))) g))))
+              ; ((and (relate? g) (equal? 'appendo (relate-name g)) (var? (car (relate-params g))))
+              ;               (displayln "AHHHHH") (normalize-goal (universal v (imply (listo (car (relate-params g))) g))))
               (else         (universal v g)))))))
 
 (define (combine-diseqs g)
@@ -479,6 +489,18 @@
     ((eq? type? list?)                   (listo t))
     (else (error "type->goal: Invalid type"))))
 
+(define (relate-name g)
+  (match g
+    ((relate _ des)     (car (cdr des)))
+    ((not-relate _ des) (car (cdr des)))
+    (_                  (error "relate-name: g is not a relate or not-relate" g))))
+
+(define (relate-params g)
+  (match g
+    ((relate _ des)     (cdr (cdr des)))
+    ((not-relate _ des) (cdr (cdr des)))
+    (_                  (error "relate-params: g is not a relate or not-relate" g))))
+
 (define (goal-use-var? g v)
   (match g
     ((true) #f)
@@ -508,8 +530,8 @@
     ((imply g1 g2)      (normalize-goal (imply (substitute-term g1 v term DNF?) (substitute-term g2 v term DNF?))))
     ((existential q h)  (normalize-goal (existential q (substitute-term h v term DNF?))))
     ((universal q h)    (normalize-goal (universal q (substitute-term h v term DNF?))))
-    ((relate _ des)     (if (goal-use-var? g v) (apply (car des) (map (lambda (arg) (if (equal? arg v) term arg)) (cdr (cdr des)))) g))
-    ((not-relate _ des) (if (goal-use-var? g v) (negate-goal (apply (car des) (map (lambda (arg) (if (equal? arg v) term arg)) (cdr (cdr des))))) g))
+    ((relate _ des)     (if (goal-use-var? g v) (apply (car des) (map (lambda (arg) (if (equal? arg v) term arg)) (relate-params g))) g))
+    ((not-relate _ des) (if (goal-use-var? g v) (negate-goal (apply (car des) (map (lambda (arg) (if (equal? arg v) term arg)) (relate-params g)))) g))
     (_                  (if (or (typeo? g) (not-typeo? g))
                             (normalize-goal (type->goal (if (equal? (typeo-t g) v) term (typeo-t g)) (typeo->type? g) (not-typeo? g)))
                             (error "substitute-term: Coudln't parse goal" g))))) 
@@ -547,8 +569,8 @@
   (match g1
     ((existential v h)  (and (existential? g2) (goal=? h (substitute-term (existential-g g2) (existential-v g2) v))))
     ((universal v h)    (and (universal? g2) (goal=? h (substitute-term (universal-g g2) (universal-v g2) v))))
-    ((relate _ des)     (and (relate? g2) (equal? (car des) (car (relate-description g2))) (equal? (cdr (cdr des)) (cdr (cdr (relate-description g2))))))
-    ((not-relate _ des) (and (not-relate? g2) (equal? (car des) (car (not-relate-description g2))) (equal? (cdr (cdr des)) (cdr (cdr (not-relate-description g2))))))
+    ((relate _ des)     (and (relate? g2) (equal? (relate-name g1) (relate-name g2)) (equal? (relate-params g1) (relate-params g2))))
+    ((not-relate _ des) (and (not-relate? g2) (equal? (relate-name g1) (relate-name g2)) (equal? (relate-params g1) (relate-params g2))))
     (_                  (equal? g1 g2))))
 
 (define (negation? g1 g2) ;;* Assumes that g1 and g2 are normalized
@@ -568,6 +590,15 @@
     ((disj g1 g2) (and (contains-equality-on-v? g1 v) (contains-equality-on-v? g2 v)))    
     ((existential _ h) (contains-equality-on-v? h v))
     ((universal _ h)  (contains-equality-on-v? h v))
+    (_ #f)))
+
+(define (contains-disequality-on-v? g v)
+  (match g
+    ((=/= t1 t2)  (or (equal? t1 v) (equal? t2 v)))
+    ((conj g1 g2) (or (contains-disequality-on-v? g1 v) (contains-disequality-on-v? g2 v)))
+    ((disj g1 g2) (and (contains-disequality-on-v? g1 v) (contains-disequality-on-v? g2 v)))    
+    ((existential _ h) (contains-disequality-on-v? h v))
+    ((universal _ h)  (contains-disequality-on-v? h v))
     (_ #f)))
 
 (define (contains-typeo-on-v? g v [not-type? #f])
