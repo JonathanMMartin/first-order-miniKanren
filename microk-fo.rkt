@@ -301,6 +301,7 @@
                   (cond
                     ((true? g2) (true))
                     ((universal? g1) (normalize-goal (existential (universal-v g1) (imply (universal-g g1) g2)) DNF?)) ;; (forall v A) -> B = exists v (A -> B)
+                    ((existential? g1) (normalize-goal (universal (existential-v g1) (imply (existential-g g1) g2)) DNF?)) ;; (forall v A) -> B = exists v (A -> B)
                     (else (let ((g1 (normalize-goal (negate-goal g1) DNF?)))
                       (normalize-goal (disj g1 g2) DNF?)))))))))  ;; A -> B = ~A or B
 
@@ -369,7 +370,8 @@
               ((=/=? g)   (let ((t1 (=/=-t1 g)) (t2 (=/=-t2 g)))
                             (cond
                               ((or (equal? t1 v) (equal? t2 v)) (false))
-                              ;((or (term-use-var? t1 v) (term-use-var? t2 v)) (true)) 
+                              ; ((or (term-use-var? t1 v) (term-use-var? t2 v)) (display "so bad: ") (display t1) (display " =/= ") (displayln t2) (false))
+                              ((or (term-use-var? t1 v) (term-use-var? t2 v)) (false)) 
                               (else g))))
               
               ((or (typeo? g) (not-typeo? g)) (if (term-use-var? (typeo-t g) v) (false) g))
@@ -404,7 +406,7 @@
                                 ((contains-equality-on-v? g v) (false))
                                 ((contains-typeo-on-v? g v #f) (false))
                                 ((decidable? g) (normalize-goal (negate-goal (normalize-goal (negate-goal (universal v g)) DNF?)) DNF?)) ;;! WARNING: this may cause infinite recursion
-                                (else (error "Currently can't solve 4" g))))) ;(simplify (unfold g))))))   
+                                (else (universal v g))))) ;(simplify (unfold g))))))   
               ((conj? g)    (let* ((g1 (conj-g1 g))
                                   (g2 (conj-g2 g))
                                   (no-v-in-g1? (not (goal-use-var? g1 v)))
