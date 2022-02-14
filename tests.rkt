@@ -121,9 +121,10 @@
 (include "tests-implication.rkt")
 (include "tests-forall.rkt")
 (include "tests-forall-undecidable.rkt")
-; (include "tests-rewrite.rkt")
 
 ; (include "tests-matcho-evalo.rkt")
+
+; (include "tests-rewrite.rkt")
 
 ; (display "\nRunning remaining tests")
 ; (newline)
