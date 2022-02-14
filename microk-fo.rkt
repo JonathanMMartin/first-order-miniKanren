@@ -106,7 +106,7 @@
     ((not-pairo t)   (state->stream (not-typify t pair? st)))
     ((not-listo t)   (state->stream (not-typify t list? st)))
     ((imply g1 g2)
-     (step (mplus (pause st (negate-goal g1))   ;;? This will only work the the goal g1 is decidable, how will we solve non-decidable goals?
+     (step (mplus (pause st (negate-goal g1))
                   (pause st (conj g1 g2)))))
     ((existential v g) (step (pause (add-to-scope v 'e st) g)))
     ((universal v g) (error "not enough rules: forall"))
@@ -165,7 +165,7 @@
 
 (define (simplify g [DNF? #t] [verbose? #f])
   (begin
-    (if verbose? (display-and-continue "\nsimp g: " g (const #f) #t) #f))
+    (if verbose? (display-and-continue "\nsimp g: " g (const #f) #t) #f)
     (let ((g (normalize-goal g DNF? verbose?)))
       (begin
         (if verbose? (display-and-continue "\nnorm g: " g (const #f) #t) #f)
@@ -173,15 +173,19 @@
           ((decidable? g) (if verbose? (display-and-continue "g is dec" g) g))
           ((and (disj? g) (or (decidable? (disj-g1 g)) (decidable? (disj-g2 g))))
             (let* ((g1 (disj-g1 g))
-                  (g2 (disj-g2 g))
-                  (decidable-g1? (decidable? g1))
-                  (h1 (if decidable-g1? g1 g2))
-                  (h2 (negate-goal h1))
-                  (h3 (if decidable-g1? g2 g1))
-                  (h (disj h1 (conj h2 h3))))
+                   (g2 (disj-g2 g))
+                   (decidable-g1? (decidable? g1))
+                   (h1 (if decidable-g1? g1 g2))
+                   (h2 (negate-goal h1))
+                   (h3 (if decidable-g1? g2 g1))
+                   (h (disj h1 (conj h2 h3))))
               (if verbose? (display-and-continue "one of them is dec" h) h)))
+          ((and (imply? g) (decidable? (imply-g1 g)))
+            (if verbose? (display-and-continue "imply-g1 is dec" g) g))
           (else
-            (if verbose? (display-and-continue "nothing is good, we unfold" g (lambda (x) (simplify (unfold x) DNF? verbose?))) (simplify (unfold g) DNF? verbose?)))))))
+            (if verbose? 
+                (display-and-continue "nothing is good, we unfold" g (lambda (x) (simplify (unfold x) DNF? verbose?))) 
+                (simplify (unfold g) DNF? verbose?))))))))
 
 (define (normalize-goal g [DNF? #t] [verbose? #f])
   (begin
@@ -221,16 +225,32 @@
       ((universal v h)        (normalize-universal v h DNF? verbose?))
       
       ;; Rewrites for user defined relations
-      ((relate thunk (list fun 'appendo (cons x xs) ys (cons z zs)))
-        (normalize-goal (conj (== x z) (fun xs ys zs)) DNF? verbose?))
-      ((relate thunk (list _ 'appendo xs ys xsys))
-        (cond
-          ((equal? xs '())    (normalize-goal (== ys xsys) DNF? verbose?))
-          ((equal? ys '())    (normalize-goal (conj (listo xs) (== xs xsys)) DNF? verbose?))
-          ((equal? xsys '())  (normalize-goal (conj (== xs '()) (== ys '())) DNF? verbose?))
-          ((equal? xs xsys)   (normalize-goal (conj (listo xs) (== ys '())) DNF? verbose?))
-          ((equal? ys xsys)   (normalize-goal (== xs '()) DNF? verbose?))
-          (else g)))
+      ((relate _ des)
+        (let ((h (match des
+                    ((list func 'appendo (cons x xs) ys (cons z zs)) 
+                      (conj (== x z) (func xs ys zs)))
+                    ((list func 'appendo xs ys xsys)
+                      (cond
+                        ((null? xs)         (== ys xsys))
+                        ((null? ys)         (conj (listo xs) (== xs xsys)))
+                        ((null? xsys)       (conj (== xs '()) (== ys '())))
+                        ((equal? xs xsys)   (conj (listo xs) (== ys '())))
+                        ((equal? ys xsys)   (== xs '()))
+                        (else #f)))
+                    ((list func 'matcho scrutinee clauses result)
+                      (cond
+                        ((null? clauses)    (== result 'FAILURE))
+                        (else #f)))
+                    ((list func 'accesso (cons input unused) (cons 'fst accessors) value)
+                      (func input accessors value))
+                    ((list func 'accesso (cons unused input) (cons 'snd accessors) value)
+                      (func input accessors value))
+                    ((list func 'accesso input accessors value)
+                      (cond
+                        ((null? accessors)  (== value input))
+                        (else #f)))
+                    (_  #f))))
+          (if h (normalize-goal h DNF? verbose?) g)))
 
       (g                      (cond
                                 ((typeo? g)     (let ((t (typeo-t g))) (if (var? t) g (if ((typeo->type? g) t) (true) (false))))) ;; Generalized type constraint
