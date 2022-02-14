@@ -119,10 +119,9 @@
 ; (include "tests-not-listo.rkt")
 ; (include "tests-not-symbolo-not-numbero.rkt")
 ; (include "tests-implication.rkt")
-(include "tests-forall.rkt")
-(include "tests-forall-undecidable.rkt")
-
-; (include "tests-matcho-evalo.rkt")
+; (include "tests-forall.rkt")
+; (include "tests-forall-undecidable.rkt")
+(include "tests-matcho-evalo.rkt")
 
 ; (include "tests-rewrite.rkt")
 

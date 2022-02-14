@@ -79,7 +79,8 @@
   (if (mature? s) s (mature (step s))))
 
 (define (start st g)
-  ;(match (combine-diseqs (normalize-decidable g))
+  (display "we started: ")
+  (displayln g)
   (match (combine-diseqs (simplify g))
     ((true) (state->stream st))
     ((false) (state->stream #f))
@@ -182,19 +183,26 @@
     (_                    g)))
 
 (define (simplify g) ;; Change this to do something different if after normalaization we get a disj that has at least one part deciable
-  ; (displayln g)
-  ; (newline)
+  (newline)
+  (newline)
+  (display "simp: ")
+  (displayln g)
+  (newline)
   (let ((g (normalize-goal g)))
+    (begin
+      (display "normalized g: ")
+      (displayln g)
     (cond
-      ((decidable? g) g)
+      ((decidable? g)  (displayln "g is dec") g)
       ((and (disj? g) (decidable? (disj-g1 g)))
-        (disj (disj-g1 g) (disj-g2 g)))
+        (displayln "g is disj & g1 dec") (disj (disj-g1 g) (disj-g2 g)))
       ((and (disj? g) (decidable? (disj-g2 g)))
-        (disj (disj-g2 g) (disj-g1 g)))
+        (displayln "g is disj & g2 dec") (disj (disj-g2 g) (disj-g1 g)))
       (else
-        (simplify (unfold g))))))
+        (displayln "nothing is good, we unfold") (simplify (unfold g)))))))
 
 (define (normalize-goal g [DNF? #t])
+  (displayln "we are in normalize")
   (match g
     ;; Remove lists/pairs
     ((== (cons f1 r1) (cons f2 r2)) (normalize-goal (conj (== f1 f2) (== r1 r2))))
@@ -306,6 +314,7 @@
                       (normalize-goal (disj g1 g2) DNF?)))))))))  ;; A -> B = ~A or B
 
 (define (normalize-existential v g [DNF? #t])
+  ; (displayln "we are in normalize existential")
   (let ((g (normalize-goal g DNF?)))
     (cond
       ((true? g)  (true))
@@ -371,7 +380,7 @@
                             (cond
                               ((or (equal? t1 v) (equal? t2 v)) (false))
                               ; ((or (term-use-var? t1 v) (term-use-var? t2 v)) (display "so bad: ") (display t1) (display " =/= ") (displayln t2) (false))
-                              ((or (term-use-var? t1 v) (term-use-var? t2 v)) (false)) 
+                              ((or (term-use-var? t1 v) (term-use-var? t2 v)) (error "Very Bad Case")) 
                               (else g))))
               
               ((or (typeo? g) (not-typeo? g)) (if (term-use-var? (typeo-t g) v) (false) g))
