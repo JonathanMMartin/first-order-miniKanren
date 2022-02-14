@@ -403,25 +403,19 @@
                                   (no-v-in-h? (normalize-goal (negate-goal (normalize-goal (negate-goal h) DNF?)) DNF?))
                                   ((decidable? g) (error "Currently can't solve 3" g))
                                   (else (universal v g)))))
-              ((disj? g)    (let* ((g1 (disj-g1 g)) 
-                                  (g2 (disj-g2 g))
-                                  (no-v-in-g1? (not (goal-use-var? g1 v)))
-                                  (no-v-in-g2? (not (goal-use-var? g2 v))))
-                              (cond
-                                ((and no-v-in-g1? no-v-in-g2?) (disj g1 g2))
-                                (no-v-in-g1? (normalize-goal (disj g1 (universal v g2)) DNF?))
-                                (no-v-in-g2? (normalize-goal (disj g2 (universal v g1)) DNF?))
-                                ((decidable? g) (normalize-goal (negate-goal (normalize-goal (negate-goal (universal v g)) DNF?)) DNF?)) ;;! WARNING: this may cause infinite recursion
-                                (else (universal v g)))))   
-              ((conj? g)    (let* ((g1 (conj-g1 g))
-                                  (g2 (conj-g2 g))
-                                  (no-v-in-g1? (not (goal-use-var? g1 v)))
-                                  (no-v-in-g2? (not (goal-use-var? g2 v))))
-                              (cond
-                                ((and no-v-in-g1? no-v-in-g2?) (conj g1 g2))
-                                (no-v-in-g1? (normalize-goal (conj g1 (universal v g2)) DNF?))
-                                (no-v-in-g2? (normalize-goal (conj g2 (universal v g1)) DNF?))
-                                (else (normalize-goal (conj (universal v g1) (universal v g2)) DNF?)))))
+              ((disj/conj? g) (let* ((g1 (disj/conj-g1 g))
+                                     (g2 (disj/conj-g2 g))
+                                     (no-v-in-g1? (not (goal-use-var? g1 v)))
+                                     (no-v-in-g2? (not (goal-use-var? g2 v))))
+                                (cond
+                                  ((and no-v-in-g1? no-v-in-g2?) g)
+                                  ((and no-v-in-g1? (disj? g)) (normalize-goal (disj g1 (universal v g2)) DNF?))
+                                  (no-v-in-g1?                 (normalize-goal (conj g1 (universal v g2)) DNF?))
+                                  ((and no-v-in-g2? (disj? g)) (normalize-goal (disj g2 (universal v g1)) DNF?))
+                                  (no-v-in-g2?                 (normalize-goal (conj g2 (universal v g1)) DNF?))
+                                  ((conj? g)                   (normalize-goal (conj (universal v g1) (universal v g2)) DNF?))
+                                  ((decidable? g)              (normalize-goal (negate-goal (normalize-goal (negate-goal (universal v g)) DNF?)) DNF?)) ;;! WARNING: this may cause infinite recursion
+                                  (else                        (universal v g)))))
               (else         (universal v g)))))))
 
 (define (combine-diseqs g)
