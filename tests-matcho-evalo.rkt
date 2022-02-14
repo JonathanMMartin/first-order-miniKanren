@@ -83,3 +83,9 @@
 ;; ~5 milliseconds
 (example-compile-match
   '((_ 1)))
+
+;; ~5 seconds
+; (example-compile-match
+;   '((#t 1)
+;     (#f 2)
+;     (_  3)))

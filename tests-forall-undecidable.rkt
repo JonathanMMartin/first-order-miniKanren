@@ -57,6 +57,10 @@
    (run 1 (q) (forall (v) (imply (listo v) (appendo v '() v))))
    '((_.0)))
 
+(test 'undeciable-5d-1
+   (run 1 (q) (forall (v) (imply (listo v) (appendo v q v))))
+   '((())))
+
 (test 'undeciable-6
    (run 1 (q) (forall (v) (appendo v v '())))
    '())
