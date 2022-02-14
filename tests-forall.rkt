@@ -237,13 +237,13 @@
    (run 1 (q) (forall (x) (fresh (y) (=/= x y) (== y q))))
    '())
 
-; (test 'ende-basic-9
-;    (run 1 (q) (forall (x) (=/= q (cons 1 x))))
-;    '())
+(test 'ende-basic-9
+   (run 1 (q) (forall (x) (=/= q (cons 1 x))))
+   '())
 
-; (test 'ende-basic-10
-;    (run 1 (q) (conj* (fresh (x) (== q (cons 1 x))) (forall (x) (=/= q (cons 1 x)))))
-;    '())
+(test 'ende-basic-10
+   (run 1 (q) (conj* (fresh (x) (== q (cons 1 x))) (forall (x) (=/= q (cons 1 x)))))
+   '())
 
 (test 'ende-basic-11
    (run 1 (q) (forall (x) (=/= (cons x x) (cons 0 1))))
