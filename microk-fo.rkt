@@ -187,18 +187,14 @@
   (let ((g (normalize-goal g)))
     (cond
       ((decidable? g) g)
-      ((and (disj? g) (decidable? (disj-g1 g)))
-        ; (disj (disj-g1 g) (disj-g2 g)))
+      ((and (disj? g) (or (decidable? (disj-g1 g)) (decidable? (disj-g2 g))))
         (let* ((g1 (disj-g1 g))
-               (g2 (negate-goal (remove-initial-var g1)))
-               (g3 (disj-g2 g)))
-          (disj g1 (conj g2 g3))))
-      ((and (disj? g) (decidable? (disj-g2 g)))
-        ; (disj (disj-g2 g) (disj-g1 g)))
-        (let* ((g1 (disj-g2 g))
-               (g2 (negate-goal (remove-initial-var g1)))
-               (g3 (disj-g1 g)))
-          (disj g1 (conj g2 g3))))
+               (g2 (disj-g2 g))
+               (decidable-g1? (decidable? g1))
+               (h1 (if decidable-g1? g1 g2))
+               (h2 (negate-goal h1))
+               (h3 (if decidable-g1? g2 g1)))
+          (disj h1 (conj h2 h3))))
       (else
         (simplify (unfold g))))))
 
@@ -357,7 +353,8 @@
                           ((and no-v-in-g2? (disj? g)) (normalize-goal (disj g2 (existential v g1)) DNF?))
                           (no-v-in-g2?                 (normalize-goal (conj g2 (existential v g1)) DNF?))
                           ((disj? g)                   (normalize-goal (disj (existential v g1) (existential v g2)) DNF?))
-                          ((and DNF? (initial-var-equality? g1) (disj? g2)) (normalize-goal (disj (existential v (conj g1 (disj-g1 g2))) (existential v (conj g1 (disj-g2 g2)))) DNF?))              
+                          ((and DNF? (disj? g1))       (normalize-goal (disj (existential v (conj (disj-g1 g1) g2)) (existential v (conj (disj-g2 g1) g2))) DNF?))
+                          ((and DNF? (disj? g2))       (normalize-goal (disj (existential v (conj g1 (disj-g1 g2))) (existential v (conj g1 (disj-g2 g2)))) DNF?))              
                           (else (existential v g)))))
       (else         (existential v g)))))
 
@@ -621,21 +618,6 @@
         ((existential v h)  (existential v (replace-assumption-with-true ant h)))
         ((universal v h)    (universal v (replace-assumption-with-true ant h)))
         (_                  con))))
-
-(define (initial-var? v)
-  (equal? v (var #f 0)))
-
-(define (initial-var-equality? g)
-  (and (==? g) (initial-var? (==-t2 g))))
-
-(define (remove-initial-var g) ;;* Assumes that g has been normalized
-  (match g
-    ((disj g1 g2) (if (initial-var-equality? g1) g2 (disj (remove-initial-var g1) (remove-initial-var g2))))
-    ((conj g1 g2) (if (initial-var-equality? g1) g2 (conj (remove-initial-var g1) (remove-initial-var g2))))
-    ((imply g1 g2) (imply (remove-initial-var g1) (remove-initial-var g2)))
-    ((existential v h) (existential v (remove-initial-var h)))
-    ((universal v h) (universal v (remove-initial-var h)))
-    (_ (if (initial-var-equality? g) (true) g))))
 
 (define (goal<? g1 g2)
   (eqv? (goal-compare g1 g2) -1))
