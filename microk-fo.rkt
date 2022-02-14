@@ -199,18 +199,18 @@
         (let* ((g1 (disj-g1 g))
                (g2 (negate-goal (remove-initial-var g1)))
                (g3 (disj-g2 g)))
-          (disj g1 (conj g2 g3))))
+          (displayln "g1 is dec") (disj g1 (conj g2 g3))))
       ((and (disj? g) (decidable? (disj-g2 g)))
         ; (disj (disj-g2 g) (disj-g1 g)))
         (let* ((g1 (disj-g2 g))
                (g2 (negate-goal (remove-initial-var g1)))
                (g3 (disj-g1 g)))
-          (disj g1 (conj g2 g3))))
+          (displayln "g2 is dec") (disj g1 (conj g2 g3))))
       (else
         (displayln "nothing is good, we unfold") (simplify (unfold g)))))))
 
 (define (normalize-goal g [DNF? #t])
-  (displayln "we are in normalize")
+  ; (displayln "we are in normalize")
   (match g
     ;; Remove lists/pairs
     ((== (cons f1 r1) (cons f2 r2)) (normalize-goal (conj (== f1 f2) (== r1 r2))))
