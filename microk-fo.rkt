@@ -167,7 +167,7 @@
   (let ((count 0))
     (lambda (g)
       (set! count (+ count 1))
-      (call-with-output-file (string-append "logs/goal-log" (number->string count) ".rkt")
+      (call-with-output-file (string-append "logs/goal-log" (number->string count) ".txt")
         (lambda (out) (pretty-write g out))))))
 
 (define (simplify g [DNF? #t] [verbose? #f] [logs? #f])
