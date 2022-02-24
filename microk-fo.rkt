@@ -81,7 +81,7 @@
 (define (start st g)
   ; (display "we started: ")
   ; (displayln g)
-  (match (combine-diseqs (simplify g #t #f))
+  (match (combine-diseqs (simplify g #t #f #t))
     ((true) (state->stream st))
     ((false) (state->stream #f))
     ((disj g1 g2)
@@ -163,8 +163,16 @@
     (display-v?   (display msg) (displayln v) (continue v))
     (else         (displayln msg) (continue v))))
 
-(define (simplify g [DNF? #t] [verbose? #f])
+(define pretty-g
+  (let ((count 0))
+    (lambda (g)
+      (set! count (+ count 1))
+      (call-with-output-file (string-append "logs/goal-log" (number->string count) ".rkt")
+        (lambda (out) (pretty-write g out))))))
+
+(define (simplify g [DNF? #t] [verbose? #f] [logs? #f])
   (begin
+    (if logs? (pretty-g g) #f)
     (if verbose? (display-and-continue "\nsimp g: " g (const #f) #t) #f)
     (let ((g (normalize-goal g DNF? verbose?)))
       (begin
@@ -184,8 +192,8 @@
             (if verbose? (display-and-continue "imply-g1 is dec" g) g))
           (else
             (if verbose? 
-                (display-and-continue "nothing is good, we unfold" g (lambda (x) (simplify (unfold x) DNF? verbose?))) 
-                (simplify (unfold g) DNF? verbose?))))))))
+                (display-and-continue "nothing is good, we unfold" g (lambda (x) (simplify (unfold x) DNF? verbose? logs?))) 
+                (simplify (unfold g) DNF? verbose? logs?))))))))
 
 (define (normalize-goal g [DNF? #t] [verbose? #f])
   (begin
