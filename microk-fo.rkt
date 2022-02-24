@@ -176,6 +176,7 @@
     (if verbose? (display-and-continue "\nsimp g: " g (const #f) #t) #f)
     (let ((g (normalize-goal g DNF? verbose?)))
       (begin
+        (if logs? (pretty-g g) #f)
         (if verbose? (display-and-continue "\nnorm g: " g (const #f) #t) #f)
         (cond
           ((decidable? g) (if verbose? (display-and-continue "g is dec" g) g))
