@@ -164,12 +164,21 @@
     (display-v?   (display msg) (displayln v) (continue v))
     (else         (displayln msg) (continue v))))
 
-(define (simplify g [DNF? #t] [verbose? #f] [count 0])
+(define pretty-g
+  (let ((count 0))
+    (lambda (g)
+      (set! count (+ count 1))
+      (call-with-output-file (string-append "logs/goal-log" (number->string count) ".txt")
+        (lambda (out) (pretty-write g out))))))
+
+(define (simplify g [DNF? #t] [verbose? #f] [logs? #f])
   (begin
+    (if logs? (pretty-g g) #f)
     (if verbose? (display-and-continue "\nsimp g: " g (const #f) #t) #f)
     (if verbose? (display-and-continue "\nunfold count: " count (const #f) #t) #f)
     (let ((g (normalize-goal g DNF? verbose?)))
       (begin
+        (if logs? (pretty-g g) #f)
         (if verbose? (display-and-continue "\nnorm g: " g (const #f) #t) #f)
         (cond
           ((decidable? g) (if verbose? (display-and-continue "g is dec" g) g))
@@ -185,8 +194,8 @@
             (if verbose? (display-and-continue "imply-g1 is dec" g) g))
           (else
             (if verbose? 
-                (display-and-continue "nothing is good, we unfold" g (lambda (x) (simplify (unfold x) DNF? verbose? (+ count 1)))) 
-                (simplify (unfold g) DNF? verbose? (+ count 1)))))))))
+                (display-and-continue "nothing is good, we unfold" g (lambda (x) (simplify (unfold x) DNF? verbose? logs?))) 
+                (simplify (unfold g) DNF? verbose? logs?))))))))
 
 (define (normalize-goal g [DNF? #t] [verbose? #f] [double-negate? #t])
   (begin
