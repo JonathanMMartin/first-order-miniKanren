@@ -57,6 +57,9 @@
 (struct mplus       (mplus-s1 mplus-s2)      #:prefab)
 (struct pause       (pause-state pause-goal) #:prefab)
 
+(define verbose? #f)
+(define logs? #t)
+
 (define (negate-goal g)
   (cond
     ((true? g)        (false))
@@ -81,8 +84,7 @@
 (define (start st g)
   ; (display "we started: ")
   ; (displayln g)
-  (match (combine-diseqs (simplify g #t #f))
-  ;(match (simplify g #t #f)
+  (match (combine-diseqs (simplify g #t))
     ((true) (state->stream st))
     ((false) (state->stream #f))
     ((disj g1 g2)
@@ -110,7 +112,7 @@
      (step (mplus (pause st (negate-goal g1))
                   (pause st (conj g1 g2)))))
     ((existential v g) (step (pause (add-to-scope v 'e st) g)))
-    ((universal v g) (error "not enough rules: forall" (universal v g)))
+    ((universal v g) (error "not enough rules: forall"))
     ))
 
 (define (step s)
@@ -148,6 +150,9 @@
     ((not-relate? g)   #f)
     (else              #f)))
 
+(define (unfold-all g)
+  (unfold g))
+
 (define (unfold g)
   (match g
     ((disj g1 g2)         (disj (unfold g1) (unfold g2))) ;; overly eager? Unfold one side?
@@ -171,14 +176,14 @@
       (call-with-output-file (string-append "logs/goal-log" (number->string count) ".txt")
         (lambda (out) (pretty-write g out))))))
 
-(define (simplify g [DNF? #t] [verbose? #f] [logs? #f])
+
+
+(define (simplify g [DNF? #t])
   (begin
     (if logs? (pretty-g g) #f)
     (if verbose? (display-and-continue "\nsimp g: " g (const #f) #t) #f)
-    (if verbose? (display-and-continue "\nunfold count: " count (const #f) #t) #f)
-    (let ((g (normalize-goal g DNF? verbose?)))
+    (let ((g (normalize-goal g DNF?)))
       (begin
-        (if logs? (pretty-g g) #f)
         (if verbose? (display-and-continue "\nnorm g: " g (const #f) #t) #f)
         (cond
           ((decidable? g) (if verbose? (display-and-continue "g is dec" g) g))
@@ -187,26 +192,29 @@
                    (g2 (disj-g2 g))
                    (decidable-g1? (decidable? g1))
                    (h1 (if decidable-g1? g1 g2))
-                   (h2 (if decidable-g1? g2 g1))
-                   (h (disj h1 h2)))
+                   (h2 (negate-goal h1))
+                   (h3 (if decidable-g1? g2 g1))
+                   (h (disj h1 (conj h2 h3))))
               (if verbose? (display-and-continue "one of them is dec" h) h)))
           ((and (imply? g) (decidable? (imply-g1 g)))
             (if verbose? (display-and-continue "imply-g1 is dec" g) g))
           (else
             (if verbose? 
-                (display-and-continue "nothing is good, we unfold" g (lambda (x) (simplify (unfold x) DNF? verbose? logs?))) 
-                (simplify (unfold g) DNF? verbose? logs?))))))))
+                (display-and-continue "nothing is good, we unfold" g (lambda (x) (simplify (unfold-all x) DNF?))) 
+                (simplify (unfold-all g) DNF?))))))))
 
-(define (normalize-goal g [DNF? #t] [verbose? #f] [double-negate? #t])
+;; make sure to only unfold 2 times
+
+(define (normalize-goal g [DNF? #t])
   (begin
     (if verbose? (display-and-continue "\nNormalizing: " g (const #f) #t) #f)
     (match g
       ;; Remove lists/pairs
-      ((== (cons f1 r1) (cons f2 r2)) (normalize-goal (conj (== f1 f2) (== r1 r2)) DNF? verbose?))
+      ((== (cons f1 r1) (cons f2 r2)) (normalize-goal (conj (== f1 f2) (== r1 r2)) DNF?))
       ((== (cons f1 r1) t2) (if (var? t2) (== (cons f1 r1) t2) (false)))
       ((== t1 (cons f2 r2)) (if (var? t1) (== (cons f2 r2) t1) (false)))
 
-      ((=/= (cons f1 r1) (cons f2 r2)) (normalize-goal (disj (=/= f1 f2) (=/= r1 r2)) DNF? verbose?))
+      ((=/= (cons f1 r1) (cons f2 r2)) (normalize-goal (disj (=/= f1 f2) (=/= r1 r2)) DNF?))
       ; ((=/= (cons f1 r1) t2) (if (var? t2) (=/= (cons f1 r1) t2) (false)))
       ; ((=/= t1 (cons f2 r2)) (if (var? t1) (=/= (cons f2 r2) t1) (false)))
 
@@ -225,42 +233,66 @@
                                 ((or (contains-fresh? t1) (contains-fresh? t2)) (=/= t2 t1))
                                 (else (true))))
 
-      ((listo (cons _ y)) (normalize-goal (listo y) DNF? verbose?))
+      ((listo (cons _ y)) (normalize-goal (listo y) DNF?))
 
       ;; Recursive normalization
-      ((disj g1 g2)           (normalize-disj g1 g2 DNF? verbose?))
-      ((conj g1 g2)           (normalize-conj g1 g2 DNF? verbose?))
-      ((imply g1 g2)          (normalize-imply g1 g2 DNF? verbose?))
-      ((existential v h)      (normalize-existential v h DNF? verbose? double-negate?))
-      ((universal v h)        (normalize-universal v h DNF? verbose? double-negate?))
+      ((disj g1 g2)           (normalize-disj g1 g2 DNF?))
+      ((conj g1 g2)           (normalize-conj g1 g2 DNF?))
+      ((imply g1 g2)          (normalize-imply g1 g2 DNF?))
+      ((existential v h)      (normalize-existential v h DNF?))
+      ((universal v h)        (normalize-universal v h DNF?))
       
       ;; Rewrites for user defined relations
-      ((relate     thunk des) (normalize-relate thunk des #f DNF? verbose?))
-      ((not-relate thunk des) (normalize-relate thunk des #t DNF? verbose?))
-      
+      ((relate _ des)
+        (let ((h (match des
+                    ((list func 'appendo (cons x xs) ys (cons z zs)) 
+                      (conj (== x z) (func xs ys zs)))
+                    ((list func 'appendo xs ys xsys)
+                      (cond
+                        ((null? xs)         (== ys xsys))
+                        ((null? ys)         (conj (listo xs) (== xs xsys)))
+                        ((null? xsys)       (conj (== xs '()) (== ys '())))
+                        ((equal? xs xsys)   (conj (listo xs) (== ys '())))
+                        ((equal? ys xsys)   (== xs '()))
+                        (else #f)))
+                    ((list func 'matcho scrutinee clauses result)
+                      (cond
+                        ((null? clauses)    (== result 'FAILURE))
+                        (else #f)))
+                    ((list func 'accesso (cons input unused) (cons 'fst accessors) value)
+                      (func input accessors value))
+                    ((list func 'accesso (cons unused input) (cons 'snd accessors) value)
+                      (func input accessors value))
+                    ((list func 'accesso input accessors value)
+                      (cond
+                        ((null? accessors)  (== value input))
+                        (else #f)))
+                    (_  #f))))
+          (if h (normalize-goal h DNF?) g)))
+
       (g                      (cond
                                 ((typeo? g)     (let ((t (typeo-t g))) (if (var? t) g (if ((typeo->type? g) t) (true) (false))))) ;; Generalized type constraint
                                 ((not-typeo? g) (let ((t (typeo-t g))) (if (var? t) g (if ((typeo->type? g) t) (false) (true))))) ;; Generalized not-type constraint
                                 (else           g)))))) ;; No simplification possible
 
-(define (normalize-disj g1 g2 [DNF? #t] [verbose? #f])
-  (let ((g1 (normalize-goal g1 DNF? verbose?)))
+(define (normalize-disj g1 g2 [DNF? #t])
+  (let ((g1 (normalize-goal g1 DNF?)))
     (cond
       ((true? g1)  (true))                      ;; True or A = True
-      ((false? g1) (normalize-goal g2 DNF? verbose?))    ;; False or A = A
-      (else (let ((g2 (normalize-goal g2 DNF? verbose?)))
+      ((false? g1) (normalize-goal g2 DNF?))    ;; False or A = A
+      (else (let ((g2 (normalize-goal g2 DNF?)))
               (cond
                 ((true? g2)   (true))           ;; A or True = True
                 ((false? g2)  g1)               ;; A or False = A
                 ; ((and (not DNF?) (conj? g1))  (normalize-goal (conj (disj (conj-g1 g1) g2) (disj (conj-g2 g1) g2)) DNF?));;(error "CNF not implemented"))
                 ; ((and (not DNF?) (conj? g2))  (normalize-goal (conj (disj g1 (conj-g1 g2)) (disj g1 (conj-g2 g2))) DNF?));;(error "CNF not implemented"))
-                ((disj? g1) (normalize-goal (disj (disj-g1 g1) (disj (disj-g2 g1) g2)) DNF? verbose?))
-                ((and (disj? g2) (goal-diseq-first<? (disj-g1 g2) g1)) (normalize-goal (disj (disj-g1 g2) (disj g1 (disj-g2 g2))) DNF? verbose?))
-                ((goal-diseq-first<? g2 g1) (normalize-goal (disj g2 g1) DNF? verbose?))
+                ((disj? g1) (normalize-goal (disj (disj-g1 g1) (disj (disj-g2 g1) g2)) DNF?))
+                ((and (disj? g2) (goal-diseq-first<? (disj-g1 g2) g1)) (normalize-goal (disj (disj-g1 g2) (disj g1 (disj-g2 g2))) DNF?))
+                ((goal-diseq-first<? g2 g1) (normalize-goal (disj g2 g1) DNF?))
                 ((or (=/=? g1) (typeo? g1) (not-typeo? g1))
                   (let ((g2 (if (=/=? g1)
-                                (substitute-term g2 (=/=-t2 g1) (=/=-t1 g1) DNF? verbose?)
-                                (apply-type g2 (typeo-t g1) (typeo->type? g1) DNF? (typeo? g1) verbose?))))
+                                (substitute-term g2 (=/=-t2 g1) (=/=-t1 g1) DNF?)
+                                (apply-type g2 (typeo-t g1) (typeo->type? g1) DNF? (typeo? g1)))))
                     (match g2
                       ((true)   (true))
                       ((false)  g1)
@@ -270,36 +302,24 @@
                 ((negation? g1 g2) (true))      ;; A or ~A = True
                 (else (disj g1 g2))))))))
 
-(define (normalize-conj g1 g2 [DNF? #t] [verbose? #f])
-  (let ((g1 (normalize-goal g1 DNF? verbose?)))
+(define (normalize-conj g1 g2 [DNF? #t])
+  (let ((g1 (normalize-goal g1 DNF?)))
     (cond
-      ((true? g1)   (normalize-goal g2 DNF? verbose?))   ;; True and A = A
+      ((true? g1)   (normalize-goal g2 DNF?))   ;; True and A = A
       ((false? g1)  (false))                    ;; False and A = False
-      (else (let ((g2 (normalize-goal g2 DNF? verbose?)))
+      (else (let ((g2 (normalize-goal g2 DNF?)))
               (cond
                 ((true? g2)   g1)               ;; A and True = A
                 ((false? g2)  (false))          ;; A and False = False
-                ((and DNF? (disj? g1))
-                  (let ((h1 g2)
-                        (h2 (if (decidable? (disj-g1 g1)) (disj-g1 g1) (disj-g2 g1)))
-                        (h3 (if (decidable? (disj-g1 g1)) (disj-g2 g1) (disj-g1 g1))))
-                    ;(normalize-goal (disj (conj h1 h2) (conj (negate-goal h2) (conj h1 h3))) DNF? verbose?)))
-                    (normalize-goal (disj (conj h1 h2) (conj h1 h3)) DNF? verbose?)))
-                ((and DNF? (disj? g2))
-                  (let ((h1 g1)
-                        (h2 (if (decidable? (disj-g1 g2)) (disj-g1 g2) (disj-g2 g2)))
-                        (h3 (if (decidable? (disj-g1 g2)) (disj-g2 g2) (disj-g1 g2))))
-                    ;(normalize-goal (disj (conj h1 h2) (conj (negate-goal h2) (conj h1 h3))) DNF? verbose?)))
-                    (normalize-goal (disj (conj h1 h2) (conj h1 h3)) DNF? verbose?)))
-                ; ((and DNF? (disj? g1)) (normalize-goal (disj (conj (disj-g1 g1) g2) (conj (disj-g2 g1) g2)) DNF? verbose?))  ;; (A or B) and C = (A and C) or (B and C)
-                ; ((and DNF? (disj? g2)) (normalize-goal (disj (conj g1 (disj-g1 g2)) (conj g1 (disj-g2 g2))) DNF? verbose?))  ;; A and (B or C) = (A and B) or (A and C)
-                ((conj? g1) (normalize-goal (conj (conj-g1 g1) (conj (conj-g2 g1) g2)) DNF? verbose?))            ;; (A and B) and C = A and (B and C)
-                ((and (conj? g2) (goal<? (conj-g1 g2) g1)) (normalize-goal (conj (conj-g1 g2) (conj g1 (conj-g2 g2))) DNF? verbose?))
-                ((goal<? g2 g1) (normalize-goal (conj g2 g1) DNF? verbose?))
+                ; ((and DNF? (disj? g1)) (normalize-goal (disj (conj (disj-g1 g1) g2) (conj (disj-g2 g1) g2)) DNF?))  ;; (A or B) and C = (A and C) or (B and C)
+                ; ((and DNF? (disj? g2)) (normalize-goal (disj (conj g1 (disj-g1 g2)) (conj g1 (disj-g2 g2))) DNF?))  ;; A and (B or C) = (A and B) or (A and C)
+                ((conj? g1) (normalize-goal (conj (conj-g1 g1) (conj (conj-g2 g1) g2)) DNF?))            ;; (A and B) and C = A and (B and C)
+                ((and (conj? g2) (goal<? (conj-g1 g2) g1)) (normalize-goal (conj (conj-g1 g2) (conj g1 (conj-g2 g2))) DNF?))
+                ((goal<? g2 g1) (normalize-goal (conj g2 g1) DNF?))
                 ((or (==? g1) (typeo? g1) (not-typeo? g1))
                   (let ((g2 (if (==? g1)
-                                (substitute-term g2 (==-t2 g1) (==-t1 g1) DNF? verbose?)
-                                (apply-type g2 (typeo-t g1) (typeo->type? g1) DNF? (not-typeo? g1) verbose?))))
+                                (substitute-term g2 (==-t2 g1) (==-t1 g1) DNF?)
+                                (apply-type g2 (typeo-t g1) (typeo->type? g1) DNF? (not-typeo? g1)))))
                     (match g2
                       ((true)   g1)
                       ((false)  (false))
@@ -314,33 +334,35 @@
       (replace-implication (conj-g2 ant) (replace-assumption-with-true (conj-g1 ant) con))
       (replace-assumption-with-true ant con)))
 
-(define (normalize-imply g1 g2 [DNF? #t] [verbose? #f])
-  (let ((g1 (normalize-goal g1 DNF? verbose?)))
+(define (normalize-imply g1 g2 [DNF? #t])
+  (let ((g1 (normalize-goal g1 DNF?)))
     (match g1
-      ((true) (normalize-goal g2 DNF? verbose?))  ;; True -> A  = A
+      ((true) (normalize-goal g2 DNF?))  ;; True -> A  = A
       ((false) (true))                            ;; False -> A = True
-      (_       (let* ((g2 (normalize-goal g2 DNF? verbose?))
-                      (g2 (normalize-goal (replace-implication g1 g2) DNF? verbose?)))
+      (_       (let* ((g2 (normalize-goal g2 DNF?))
+                      (g2 (normalize-goal (replace-implication g1 g2) DNF?)))
                   (cond
                     ((true? g2) (true))
-                    ((universal? g1) (normalize-goal (existential (universal-v g1) (imply (universal-g g1) g2)) DNF? verbose?)) ;; (forall v A) -> B = exists v (A -> B)
-                    ((existential? g1) (normalize-goal (universal (existential-v g1) (imply (existential-g g1) g2)) DNF? verbose?)) ;; (forall v A) -> B = exists v (A -> B)
-                    (else (let ((g1 (normalize-goal (negate-goal g1) DNF? verbose?)))
-                      (normalize-goal (disj g1 g2) DNF? verbose?)))))))))  ;; A -> B = ~A or B
+                    ((universal? g1) (normalize-goal (existential (universal-v g1) (imply (universal-g g1) g2)) DNF?)) ;; (forall v A) -> B = exists v (A -> B)
+                    ((existential? g1) (normalize-goal (universal (existential-v g1) (imply (existential-g g1) g2)) DNF?)) ;; (forall v A) -> B = exists v (A -> B)
+                    (else (let ((g1 (normalize-goal (negate-goal g1) DNF?)))
+                      (normalize-goal (disj g1 g2) DNF?)))))))))  ;; A -> B = ~A or B
 
-(define (normalize-existential v g [DNF? #t] [verbose? #f] [double-negate? #t])
+(define (normalize-existential v g [DNF? #t])
   ; (displayln "we are in normalize existential")
-  (let ((g (normalize-goal g DNF? verbose?)))
+  (let ((g (normalize-goal g DNF?)))
     (cond
+      ((true? g)  (true))
+      ((false? g) (false))
       ((not (goal-use-var? g v)) g)
       ((==? g)        (let ((t1 (==-t1 g)) (t2 (==-t2 g)))
                         (cond
-                          ((or (equal? t1 v) (equal? t2 v)) (true)) ;; Is this a problem? Are we loosing information with this?
+                          ((or (equal? t1 v) (equal? t2 v)) (true))
                           ((or (term-use-var? t1 v) (term-use-var? t2 v)) (existential v g))
                           (else g))))
-      ((=/=? g)       (if (or (term-use-var? (=/=-t1 g) v) (term-use-var? (=/=-t2 g) v)) (true) g)) ;; Is this a problem? Are we losing information with this?
-      ((or (typeo? g) (not-typeo? g)) (if (term-use-var? (typeo-t g) v) (true) g))  ;; Is this a problem? are we loosing informaion with this?
-      ;((and double-negate? (universal? g)) (normalize-goal (negate-goal (normalize-goal (negate-goal (existential v g) DNF? verbose? #f)) DNF? verbose? #f))) ;;! Infinite recursion?
+      ((=/=? g)       (if (or (term-use-var? (=/=-t1 g) v) (term-use-var? (=/=-t2 g) v)) (true) g))
+      ((or (typeo? g) (not-typeo? g)) (if (term-use-var? (typeo-t g) v) (true) g))
+      ((universal? g) (normalize-goal (negate-goal (normalize-goal (negate-goal g) DNF?)) DNF?)) ;;! Infinite recursion?
       ((disj/conj? g) (let* ((g1 (disj/conj-g1 g))
                              (g2 (disj/conj-g2 g))
                              (no-v-in-g1? (not (goal-use-var? g1 v)))
@@ -351,18 +373,17 @@
                                   ((and no-v-in-g2? (disj? g)) (disj g2 (existential v g1)))
                                   (no-v-in-g2?                 (conj g2 (existential v g1)))
                                   ((disj? g)                   (disj (existential v g1) (existential v g2)))
-                                  ; ((disj? g)                   (disj (existential v g1) (existential v (conj (negate-goal g1) g2)))) ; E (disj g1 g2) -> (disj (E g1) (E (conj (negate g1) g2)))
-                                  ; ((and DNF? (disj? g1))       (let ((h1 (disj-g1 g1)) (h2 (disj-g2 g1)) (h3 g2)) (disj (existential v (conj h1 h3)) (existential v (conj (negate-goal h1) (conj h2 h3)))))) ;; E (conj (disj h1 h2) h3) -> (disj (E (conj h1 h3)) (E (conj (negate-goal h1) (conj h2 h3))))
-                                  ; ((and DNF? (disj? g2))       (let ((h1 g1) (h2 (disj-g1 g2)) (h3 (disj-g2 g2))) (disj (existential v (conj h1 h2)) (existential v (conj (negate-goal h2) (conj h1 h3)))))) ;; E (conj h1 (disj h2 h3)) -> (disj (E (conj h1 h2)) (E (conj (negate-goal h2) (conj h1 h3))))        
+                                  ((and DNF? (disj? g1))       (disj (existential v (conj (disj-g1 g1) g2)) (existential v (conj (disj-g2 g1) g2))))
+                                  ((and DNF? (disj? g2))       (disj (existential v (conj g1 (disj-g1 g2))) (existential v (conj g1 (disj-g2 g2)))))            
                                   (else                        #f))))
-                        (if h (normalize-goal h DNF? verbose?) (existential v g))))
+                        (if h (normalize-goal h DNF?) (existential v g))))
       (else         (existential v g)))))
 
-(define (normalize-universal v g [DNF? #t] [verbose? #f] [double-negate? #t] [induction? #t])
+(define (normalize-universal v g [DNF? #t][induction? #t])
   (cond
     ((and induction? (imply? g)) ;; List induction rewrite rules
-      (let* ((g1 (normalize-goal (imply-g1 g) DNF? verbose?))
-             (g2 (normalize-goal (imply-g2 g) DNF? verbose?)))
+      (let* ((g1 (normalize-goal (imply-g1 g) DNF?))
+             (g2 (normalize-goal (imply-g2 g) DNF?)))
         (cond
           ((goal=? g1 g2) (true))
           ((and (listo? g1) (equal? v (listo-t g1)))
@@ -371,10 +392,12 @@
                    (antecedent g2)
                    (consequent (universal a (substitute-term g2 v (cons a v) DNF?)))
                    (inductive-step (universal v (imply antecedent (unfold consequent)))))
-              (normalize-goal (conj base-case inductive-step) DNF? verbose?)))
-          (else (normalize-universal v (imply g1 g2) DNF? verbose? double-negate? #f)))))
-    (else (let ((g (normalize-goal g DNF? verbose?)))
+              (normalize-goal (conj base-case inductive-step) DNF?)))
+          (else (normalize-universal v (imply g1 g2) DNF? #f)))))
+    (else (let ((g (normalize-goal g DNF?)))
             (cond
+              ((true? g)  (true))
+              ((false? g) (false))
               ((not (goal-use-var? g v)) g)
               ((==? g)    (if (or (term-use-var? (==-t1 g) v) (term-use-var? (==-t2 g) v)) (false) g))
               ((=/=? g)   (let ((t1 (=/=-t1 g)) (t2 (=/=-t2 g)))
@@ -388,7 +411,7 @@
               ((or (typeo? g) (not-typeo? g)) (if (term-use-var? (typeo-t g) v) (false) g))
               
               ((imply? g)     (error "Currently can't solve 1" g))
-              ;((and double-negate? (universal? g)) (normalize-goal (negate-goal (normalize-goal (negate-goal (universal v g)) DNF? verbose? #f)) DNF? verbose? #f)) ;;! Warning: may cause infinte recursion
+              ((universal? g) (normalize-goal (negate-goal (normalize-goal (negate-goal g) DNF?)) DNF?)) ;;! Warning: may cause infinte recursion
               ((disj/conj? g) (let* ((g1 (disj/conj-g1 g))
                                      (g2 (disj/conj-g2 g))
                                      (no-v-in-g1? (not (goal-use-var? g1 v)))
@@ -399,38 +422,10 @@
                                           ((and no-v-in-g2? (disj? g)) (disj g2 (universal v g1)))
                                           (no-v-in-g2?                 (conj g2 (universal v g1)))
                                           ((conj? g)                   (conj (universal v g1) (universal v g2)))
+                                          ((decidable? g)              (negate-goal (normalize-goal (negate-goal (universal v g)) DNF?))) ;;! Warning: this may cause infintie recursion
                                           (else #f))))
-                                (if h (normalize-goal h DNF? verbose?) (universal v g))));(normalize-goal (negate-goal (normalize-goal (negate-goal (universal v g)) DNF? verbose? #f)) DNF? verbose? #f))))
+                                (if h (normalize-goal h DNF?) (universal v g))))
               (else         (universal v g)))))))
-
-(define (normalize-relate thunk des [not-relation? #f] [DNF? #t] [verbose? #f])
-  (let* ((body (if not-relation? negate-goal identity))
-         (contin (lambda (x) (normalize-goal (body x) DNF? verbose?)))
-         (h (match des
-             ((list func 'appendo (cons x xs) ys (cons z zs)) 
-               (conj (== x z) (func xs ys zs)))
-             ((list func 'appendo xs ys xsys)
-               (cond
-                 ((null? xs)         (== ys xsys))
-                 ((null? ys)         (conj (listo xs) (== xs xsys)))
-                 ((null? xsys)       (conj (== xs '()) (== ys '())))
-                 ((equal? xs xsys)   (conj (listo xs) (== ys '())))
-                 ((equal? ys xsys)   (== xs '()))
-                 (else #f)))
-             ((list func 'matcho scrutinee clauses result)
-               (cond
-                 ((null? clauses)    (== result 'FAILURE))
-                 (else #f)))
-             ((list func 'accesso (cons input unused) (cons 'fst accessors) value)
-               (func input accessors value))
-             ((list func 'accesso (cons unused input) (cons 'snd accessors) value)
-               (func input accessors value))
-             ((list func 'accesso input accessors value)
-               (cond
-                 ((null? accessors)  (== value input))
-                 (else #f)))
-             (_  #f))))
-    (if h (contin h) (body (relate thunk des)))))
 
 (define (combine-diseqs g)
   (match g
@@ -515,11 +510,10 @@
     ((not-relate _ des) (cdr (cdr des)))
     (_                  (error "relate-params: g is not a relate or not-relate" g))))
 
-(define (goal-use-var? g v [verbose? #f])
-  (if verbose? (display-and-continue "goal-use-var? " (cons v g) (const #f) #t) #f)
+(define (goal-use-var? g v)
   (match g
-    ((true)             #f)
-    ((false)            #f)
+    ((true) #f)
+    ((false) #f)
     ((disj g1 g2)       (or (goal-use-var? g1 v) (goal-use-var? g2 v)))
     ((conj g1 g2)       (or (goal-use-var? g1 v) (goal-use-var? g2 v)))
     ((== t1 t2)         (or (term-use-var? t1 v) (term-use-var? t2 v)))
@@ -527,51 +521,50 @@
     ((imply g1 g2)      (or (goal-use-var? g1 v) (goal-use-var? g2 v)))
     ((existential _ h)  (goal-use-var? h v))
     ((universal _ h)    (goal-use-var? h v))
-    ((relate _ des)     (term-use-var? (relate-params g) v))
-    ((not-relate _ des) (term-use-var? (relate-params g) v))
+    ((relate _ des)     (term-use-var? des v))
+    ((not-relate _ des) (term-use-var? des v))
     (_                  (if (or (typeo? g) (not-typeo? g))
                             (term-use-var? (typeo-t g) v)
                             (error "goal-use-var?: Can't check goal" g)))))
 
 ;; substitute v with term everywhere in g
-(define (substitute-term g v term [DNF? #t] [verbose? #f])
-  (if verbose? (display-and-continue "substitution: " (list v term g) (const #f) #t) #f)
+(define (substitute-term g v term [DNF? #t])
   (match g
     ((true)             (true))
     ((false)            (false))
-    ((disj g1 g2)       (normalize-goal (disj (substitute-term g1 v term DNF? verbose?) (substitute-term g2 v term DNF? verbose?)) verbose?))
-    ((conj g1 g2)       (normalize-goal (conj (substitute-term g1 v term DNF? verbose?) (substitute-term g2 v term DNF? verbose?)) verbose?))
-    ((== t1 t2)         (normalize-goal (== (term-replace t1 v term) (term-replace t2 v term)) verbose?))
-    ((=/= t1 t2)        (normalize-goal (=/= (term-replace t1 v term) (term-replace t2 v term)) verbose?))
-    ((imply g1 g2)      (normalize-goal (imply (substitute-term g1 v term DNF? verbose?) (substitute-term g2 v term DNF? verbose?)) verbose?))
-    ((existential q h)  (normalize-goal (existential q (substitute-term h v term DNF? verbose?)) verbose?))
-    ((universal q h)    (normalize-goal (universal q (substitute-term h v term DNF? verbose?)) verbose?))
-    ((relate _ des)     (normalize-goal (apply (car des) (map (lambda (arg) (if (equal? arg v) term arg)) (relate-params g))) DNF? verbose?)) ;; This seems like it would be time consuming if v is not in the relate, maybe check for it first?
-    ((not-relate _ des) (normalize-goal (negate-goal (apply (car des) (map (lambda (arg) (if (equal? arg v) term arg)) (relate-params g)))) DNF? verbose?)) ;; See above note
+    ((disj g1 g2)       (normalize-goal (disj (substitute-term g1 v term DNF?) (substitute-term g2 v term DNF?))))
+    ((conj g1 g2)       (normalize-goal (conj (substitute-term g1 v term DNF?) (substitute-term g2 v term DNF?))))
+    ((== t1 t2)         (normalize-goal (== (term-replace t1 v term) (term-replace t2 v term))))
+    ((=/= t1 t2)        (normalize-goal (=/= (term-replace t1 v term) (term-replace t2 v term))))
+    ((imply g1 g2)      (normalize-goal (imply (substitute-term g1 v term DNF?) (substitute-term g2 v term DNF?))))
+    ((existential q h)  (normalize-goal (existential q (substitute-term h v term DNF?))))
+    ((universal q h)    (normalize-goal (universal q (substitute-term h v term DNF?))))
+    ((relate _ des)     (if (goal-use-var? g v) (apply (car des) (map (lambda (arg) (if (equal? arg v) term arg)) (relate-params g))) g))
+    ((not-relate _ des) (if (goal-use-var? g v) (negate-goal (apply (car des) (map (lambda (arg) (if (equal? arg v) term arg)) (relate-params g)))) g))
     (_                  (if (or (typeo? g) (not-typeo? g))
-                            (normalize-goal (type->goal (if (equal? (typeo-t g) v) term (typeo-t g)) (typeo->type? g) (not-typeo? g)) verbose?)
-                            (error "substitute-term: Coudldn't parse goal" g))))) 
+                            (normalize-goal (type->goal (if (equal? (typeo-t g) v) term (typeo-t g)) (typeo->type? g) (not-typeo? g)))
+                            (error "substitute-term: Coudln't parse goal" g))))) 
 
 (define (term-replace t v term)
   (if (pair? t)
       (cons (if (equal? (car t) v) term (car t)) (term-replace (cdr t) v term))
       (if (equal? t v) term t)))
 
-(define (apply-type g v type? [DNF? #t] [not-type? #f] [verbose? #f])
+(define (apply-type g v type? [DNF? #t] [not-type? #f])
   (match g
     ((true)             (true))
     ((false)            (false))
-    ((disj g1 g2)       (normalize-goal (disj (apply-type g1 v type? DNF? not-type? verbose?) (apply-type g2 v type? DNF? not-type? verbose?)) verbose?))
-    ((conj g1 g2)       (normalize-goal (conj (apply-type g1 v type? DNF? not-type? verbose?) (apply-type g2 v type? DNF? not-type? verbose?)) verbose?))
+    ((disj g1 g2)       (normalize-goal (disj (apply-type g1 v type? DNF? not-type?) (apply-type g2 v type? DNF? not-type?))))
+    ((conj g1 g2)       (normalize-goal (conj (apply-type g1 v type? DNF? not-type?) (apply-type g2 v type? DNF? not-type?))))
     ((== t1 t2)         (if (and (equal? v t2) (not (var? t1)) (eq? not-type? (type? t1)))
                             (false)
                             g))
     ((=/= t1 t2)        (if (and (equal? v t2) (not (var? t1)) (eq? not-type? (type? t1)))
                             (true)
                             g))
-    ((imply g1 g2)      (normalize-goal (imply (apply-type g1 v type? DNF? not-type? verbose?) (apply-type g2 v type? DNF? not-type? verbose?)) verbose?))
-    ((existential q h)  (normalize-goal (existential q (apply-type h v type? DNF? not-type? verbose?)) verbose?))
-    ((universal q h)    (normalize-goal (universal q (apply-type h v type? DNF? not-type? verbose?)) verbose?))
+    ((imply g1 g2)      (normalize-goal (imply (apply-type g1 v type? DNF? not-type?) (apply-type g2 v type? DNF? not-type?))))
+    ((existential q h)  (normalize-goal (existential q (apply-type h v type? DNF? not-type?))))
+    ((universal q h)    (normalize-goal (universal q (apply-type h v type? DNF? not-type?))))
     (_                  (cond
                           ((and (typeo? g) (equal? v (typeo-t g)) (equal? (typeo->type? g) type?)) (if not-type? (false) (true)))
                           ((and (typeo? g) (equal? v (typeo-t g))) (if not-type? g (false)))
@@ -594,8 +587,8 @@
 
 (define (negation? g1 g2) ;;* Assumes that g1 and g2 are normalized
   (match g1
-    ((disj _ _)         (and (conj? g2) (goal=? g1 (negate-goal g2)))) ;;! Due to the sorted orders of disj and conj being different in normalized form, this will not always work
-    ((conj _ _)         (and (disj? g2) (goal=? g1 (negate-goal g2)))) ;;! Due to the sorted orders of disj and conj being different in normalized form, this will not always work
+    ((disj _ _)         (and (conj? g2) (goal=? g1 (negate-goal g2)))) ;;! Due to the sorted orders of disj and conj being different in normalized form, this not always work
+    ((conj _ _)         (and (disj? g2) (goal=? g1 (negate-goal g2)))) ;;! Due to the sorted orders of disj and conj being different in normalized form, this not always work
     ((imply h1 h2)      (and (imply? g2) (goal=? h1 (imply-g1 g2)) (negation? h2 (imply-g2 g2))))
     ((existential v h)  (and (universal? g2) (negation? h (substitute-term (universal-g g2) (universal-v g2) v))))
     ((universal v h)    (and (existential? g2) (negation? h (substitute-term (existential-g g2) (existential-v g2) v))))
@@ -604,20 +597,11 @@
 
 (define (contains-equality-on-v? g v)
   (match g
-    ((== t1 t2)   (or (equal? t1 v) (equal? t2 v)))
+    ((== t1 t2)   (equal? t2 v));(or (equal? t1 v) (equal? t2 v)))
     ((conj g1 g2) (or (contains-equality-on-v? g1 v) (contains-equality-on-v? g2 v)))
     ((disj g1 g2) (and (contains-equality-on-v? g1 v) (contains-equality-on-v? g2 v)))    
     ((existential _ h) (contains-equality-on-v? h v))
     ((universal _ h)  (contains-equality-on-v? h v))
-    (_ #f)))
-
-(define (contains-disequality-on-v? g v)
-  (match g
-    ((=/= t1 t2)  (or (equal? t1 v) (equal? t2 v)))
-    ((conj g1 g2) (or (contains-disequality-on-v? g1 v) (contains-disequality-on-v? g2 v)))
-    ((disj g1 g2) (and (contains-disequality-on-v? g1 v) (contains-disequality-on-v? g2 v)))    
-    ((existential _ h) (contains-disequality-on-v? h v))
-    ((universal _ h)  (contains-disequality-on-v? h v))
     (_ #f)))
 
 (define (contains-typeo-on-v? g v [not-type? #f])
@@ -688,10 +672,10 @@
                               (if (eqv? 0 compared-g1) (goal-compare (imply-g2 g1) (imply-g2 g2)) compared-g1))
                             -1))
     ((imply? g2)        1)
-    ((existential? g1)  (if (existential? g2) (if (< (var-index (existential-v g1)) (var-index (existential-v g2))) -1 1) -1))
-    ((existential? g2)  1)
-    ((universal? g1)    (if (universal? g2) (if (< (var-index (universal-v g1)) (var-index (universal-v g2))) -1 1) -1))
-    ((universal? g2)    1)
+    ((existential? g1)       (if (existential? g2) (if (< (var-index (existential-v g1)) (var-index (existential-v g2))) -1 1) -1))
+    ((existential? g2)       1)
+    ((universal? g1)      (if (universal? g2) (if (< (var-index (universal-v g1)) (var-index (universal-v g2))) -1 1) -1))
+    ((universal? g2)      1)
     ((conj? g1)         (if (conj? g2)
                             (let ((compared-g1 (goal-compare (conj-g1 g1) (conj-g1 g2))))
                               (if (eqv? compared-g1 0) 

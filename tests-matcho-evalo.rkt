@@ -14,11 +14,10 @@
                                   (access . ,accessors.rhs))
                         ,e.then
                         ,e.else))
+            (accesso input accessors.rhs v.rhs)
             (conde ((==  v.lhs v.rhs)
-                    (accesso input accessors.rhs v.rhs)
                     (program-evalo input e.then value))
                    ((=/= v.lhs v.rhs)
-                    (accesso input accessors.rhs v.rhs)
                     (program-evalo input e.else value)))))))
 
 (define-relation (accesso input accessors value)
@@ -30,7 +29,7 @@
             (accesso input.next accessors.remaining value)))))
 
 (define (compile-match clauses)
-  (run* (program)
+  (run 2 (program)
     (forall (v) (fresh (result)
                     (matcho v clauses result)
                     (program-evalo v program result)))))
@@ -89,3 +88,49 @@
 ;   '((#t 1)
 ;     (#f 2)
 ;     (_  3)))
+
+; (define (compile-match-2 clauses)
+;   (run 2 (program)
+;     (fresh (v) (fresh (result)
+;                     (matcho v clauses result)
+;                     (program-evalo v program result)))))
+
+; (define (example-compile-match-2 clauses)
+;   (pretty-write `(example: (compile-match-2 ,clauses)))
+;   (pretty-write (time (compile-match-2 clauses))))
+
+; (example-compile-match-2
+;   '((_ 1)))
+
+; (define null-access '(access))
+; (define symb '1)
+
+; (define (compile-match-2)
+;   (run 1 (x)
+;       (program-evalo 1
+;                     `(if (equal? (quote 1) (access))
+;                          (quote a)
+;                          (quote a))
+;                     'a)))
+
+; (define (example-compile-match-2)
+;   (pretty-write `(example: (compile-match-2)))
+;   (pretty-write (time (compile-match-2))))
+
+; (example-compile-match-2)
+
+; (define (compile-match-2)
+;   (run 1 (x)
+;       (accesso symb
+;                 '()
+;                 symb)))
+
+; (define (example-compile-match-2)
+;   (pretty-write `(example: (compile-match-2)))
+;   (pretty-write (time (compile-match-2))))
+
+; (example-compile-match-2)
+
+;; expand every user relation in that formula --> do this instead of counting depth
+;; exponential explosion :(
+;; heuristic for DFS
