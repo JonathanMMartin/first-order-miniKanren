@@ -21,10 +21,8 @@
   (syntax-rules ()
     ((_ () g0 gs ...)
       (conj* g0 gs ...))
-    ((_ (x) g0 gs ...)
-      (let ((x (var/new 'x))) (existential x (conj* g0 gs ...))))
     ((_ (x xs ...) g0 gs ...)
-     (let ((x (var/new 'x))) (existential x (fresh (xs ...) g0 gs ...))))))
+     (let ((x (var/new 'x)) (xs (var/new 'xs)) ...) (existential (list x xs ...) (conj* g0 gs ...))))))
 (define-syntax conde
   (syntax-rules ()
     ((_ (g gs ...) (h hs ...) ...)
@@ -33,10 +31,8 @@
   (syntax-rules ()
     ((_ () g0 gs ...)
       (conj* g0 gs ...))
-    ((_ (x) g0 gs ...)
-      (let ((x (var/new 'x))) (universal x (conj* g0 gs ...))))
     ((_ (x xs ...) g0 gs ...)
-      (let ((x (var/new 'x))) (universal x (forall (xs ...) g0 gs ...))))))
+      (let ((x (var/new 'x)) (xs (var/new 'xs)) ...) (universal (list x xs ...) (conj* g0 gs ...))))))
 ;; Queries
 (define-syntax query
   (syntax-rules ()
