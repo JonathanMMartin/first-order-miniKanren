@@ -3,6 +3,8 @@
   (struct-out var)
   initial-var
   var/new
+  var=?
+  var<?
   (struct-out state)
   empty-state
   state->stream
@@ -32,6 +34,8 @@
 (struct var (name index) #:prefab)
 (define (var=? x1 x2)
   (= (var-index x1) (var-index x2)))
+(define (var<? x1 x2)
+  (< (var-index x1) (var-index x2)))
 (define initial-var (var #f 0))
 (define var/new
   (let ((index 0))
@@ -170,10 +174,10 @@
   (let* ((scope (state-scope st))
          (sub (state-sub st))
          (u (walk u sub))
-         (v (walk v sub))
-         (uv (if (and (var? u) (var? v)) (scope-order u v scope) (cons u v)))
-         (u (car uv))
-         (v (cdr uv)))
+         (v (walk v sub)))
+        ;  (uv (if (and (var? u) (var? v)) (scope-order u v scope) (cons u v)))
+        ;  (u (car uv))
+        ;  (v (cdr uv)))
     (cond
       ((and (var? u) (var? v) (var=? u v)) st)
       ((var? u)                            (assign-var u v st))
