@@ -79,8 +79,7 @@
   (if (mature? s) s (mature (step s))))
 
 (define (start st g)
-  (let* ((g (float-existential g))
-         (g (simplify g #f))
+  (let* ((g (simplify g #f))
          (g (combine-diseqs g)))
     (match g
       ((true) (state->stream st))
@@ -175,7 +174,8 @@
   (begin
     (if logs? (pretty-g g) #f)
     (if verbose? (display-and-continue "\nsimp g: " g (const #f) #t) #f)
-    (let* ((g (normalize-goal g verbose?))
+    (let* ((g (float-existential g))
+           (g (normalize-goal g verbose?))
            (inner-g (get-inner-goal g)))
       (begin
         (if logs? (pretty-g g) #f)
@@ -325,6 +325,7 @@
       ((null? vars-used) g)
       ((==? g)        (if (or (member (==-t1 g) vars-used) (member (==-t2 g) vars-used)) (true) (existential vars-used g)))
       ((=/=? g)       (if (or (member (=/=-t1 g) vars-used) (member (=/=-t2 g) vars-used)) (true) (existential vars-used g)))
+      ((and (conj? g) (==? (conj-g1 g)) (member (==-t1 (conj-g1 g)) vars-used) (member (==-t2 (conj-g1 g)) vars-used)) (normalize-goal (existential vars-used (conj-g2 g)) verbose? double-negate?))
       ((or (typeo? g) (not-typeo? g)) (true))
       ((existential? g) (normalize-existential (append vars-used (existential-vlst g)) (existential-g g) verbose? double-negate?))
       (else             (existential vars-used g)))))
@@ -352,6 +353,7 @@
              (vars-used (remove-duplicates vars-used var=?)))
         (cond
           ((null? vars-used) g)
+          ((foldl (lambda (acc v) (or acc (contains-typeo-on-v? g v))) #f vlst) (false))
           ((==? g)    (if (or (member (==-t1 g) vars-used) (member (==-t2 g) vars-used)) (false) (universal vars-used g)))
           ((=/=? g)   (if (or (member (=/=-t1 g) vars-used) (member (=/=-t2 g) vars-used)) (false) (universal vars-used g)))
           ((or (typeo? g) (not-typeo? g)) (false))
@@ -360,6 +362,7 @@
                              (g1-use-var? (ormap (lambda (x) (goal-use-var? g1 x)) vars-used))
                              (g2-use-var? (ormap (lambda (x) (goal-use-var? g2 x)) vars-used)))
                         (cond
+                          ((and double-negate? g1-use-var? g2-use-var?) (normalize-goal (negate-goal (normalize-goal (negate-goal (universal vars-used g)))) verbose? #f))
                           ((and g1-use-var? g2-use-var?) (universal vars-used g))
                           (g1-use-var?                   (normalize-disj (universal vars-used g1) g2))
                           (else                          (normalize-disj g1 (universal vars-used g2))))))
