@@ -221,9 +221,9 @@
    (run 1 (q) (forall (x) (fresh (y) (== y (cons 1 x)))))
    '((_.0)))
 
-; (test 'ende-basic-5
-;    (run 1 (q) (forall (x) (fresh (y) (== x (cons 1 y)))))
-;    '())
+(test 'ende-basic-5
+   (run 1 (q) (forall (x) (fresh (y) (== x (cons 1 y)))))
+   '())
 
 (test 'ende-basic-6
    (run 1 (q) (forall (x) (=/= x q)))
@@ -261,9 +261,9 @@
    (run 1 (q) (fresh (a b) (== q (cons a b)) (forall (x) (=/= (cons x x) (cons a b))) ))
    '(#s(Ans ((_.0 . _.1)) ((=/= ((_.0 _.1)))))))
 
-; (test 'ende-basic-15
-;    (run 1 (q) (forall (z) (fresh (x y) (== (cons z y) x))))
-;    '())
+(test 'ende-basic-15
+   (run 1 (q) (forall (z) (fresh (x y) (== (cons z y) x))))
+   '())
 
 (test 'ende-basic-16
    (run 1 (q) (forall (v) (disj* (== v 1) (=/= v 1) (== v 2))))

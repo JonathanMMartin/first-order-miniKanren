@@ -521,7 +521,7 @@
   '(#s(Ans (_.0) ((=/= ((#f _.0)))))))
 
 (test "non watch-var pair implies satisfied"
-  (run 1 (a b c d)
+  (run 2 (a b c d)
        (=/= (cons a c)
             (cons b d))
        (== c '(1 . 2))
