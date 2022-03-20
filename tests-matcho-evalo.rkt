@@ -30,7 +30,7 @@
             (accesso input.next accessors.remaining value)))))
 
 (define (compile-match clauses)
-  (run* (program)
+  (run 2 (program)
     (forall (v) (fresh (result)
                     (matcho v clauses result)
                     (program-evalo v program result)))))

@@ -154,7 +154,7 @@
 ;   '(((d e))))
 
 ; (test 'appendo-4
-;   (run 5 (q)
+;   (run 2 (q)
 ;     (fresh (l s out)
 ;       (appendo l s out)
 ;       (== (cons l (cons s (cons out '()))) q)))
