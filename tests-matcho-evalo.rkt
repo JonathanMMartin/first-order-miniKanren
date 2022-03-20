@@ -30,7 +30,7 @@
             (accesso input.next accessors.remaining value)))))
 
 (define (compile-match clauses)
-  (run* (program)
+  (run 2 (program)
     (forall (v) (fresh (result)
                     (matcho v clauses result)
                     (program-evalo v program result)))))
@@ -86,6 +86,6 @@
 
 ;; ~5 seconds
 ; (example-compile-match
-;   '((#t 1)
-;     (#f 2)
-;     (_  3)))
+  ; '((#t 1)
+  ;   (#f 2)
+  ;   (_  3)))

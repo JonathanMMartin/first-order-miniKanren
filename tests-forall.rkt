@@ -263,7 +263,7 @@
 
 (test 'ende-basic-15
    (run 1 (q) (forall (z) (fresh (x y) (== (cons z y) x))))
-   '())
+   '((_.0)))
 
 (test 'ende-basic-16
    (run 1 (q) (forall (v) (disj* (== v 1) (=/= v 1) (== v 2))))

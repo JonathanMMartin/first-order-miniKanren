@@ -33,6 +33,10 @@
    (run 1 (q) (forall (v) (fresh (a) (imply (== v (cons a '())) (appendo v '() v)))))
    '((_.0)))
 
+(test 'undeciable-5b-0.5
+    (run 1 (q) (forall (v) (fresh (a) (imply (== v (cons a '())) (appendo v 1 v)))))
+    '((_.0)))
+
 (test 'undeciable-5b-1
    (run 1 (q) (forall (v) (fresh (a) (imply (== v (cons a '())) (appendo v q v)))))
    '((_.0)))
@@ -45,7 +49,7 @@
    (run 1 (q) (forall (v) (forall (a) (imply (== v (cons a '())) (appendo v q v)))))
    '((())))
 
-(test 'undeciable-5c
+(test 'undeciable-5c                         
    (run 1 (q) (forall (v) (imply (fresh (a) (== v (cons a '()))) (appendo v '() v))))
    '((_.0)))
 
@@ -61,7 +65,7 @@
    (run 1 (q) (forall (v) (imply (listo v) (appendo v q v))))
    '((())))
 
-(test 'undeciable-5d-1
+(test 'undeciable-5d-2
    (run 2 (q) (forall (v) (imply (listo v) (appendo v q v))))
    '((())))
 
