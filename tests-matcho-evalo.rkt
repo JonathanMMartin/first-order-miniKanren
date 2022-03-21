@@ -13,12 +13,12 @@
             (== expr `(if (equal? (quote ,v.lhs)
                                   (access . ,accessors.rhs))
                         ,e.then
-                        ,e.else))
-            (conde ((==  v.lhs v.rhs)
-                    (accesso input accessors.rhs v.rhs)
+                        ,e.else))       
+            (accesso input accessors.rhs v.rhs)
+            (conde ;((== e.then e.else) (== e.then value))
+                   ((==  v.lhs v.rhs)
                     (program-evalo input e.then value))
                    ((=/= v.lhs v.rhs)
-                    (accesso input accessors.rhs v.rhs)
                     (program-evalo input e.else value)))))))
 
 (define-relation (accesso input accessors value)
@@ -86,6 +86,6 @@
 
 ;; ~5 seconds
 ; (example-compile-match
-  ; '((#t 1)
-  ;   (#f 2)
-  ;   (_  3)))
+;   '((#t 1)
+;     (#f 2)
+;     (_  3)))

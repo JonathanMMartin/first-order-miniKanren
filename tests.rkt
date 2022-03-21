@@ -154,7 +154,7 @@
 ;   '(((d e))))
 
 ; (test 'appendo-4
-;   (run 1 (q)
+;   (run 5 (q)
 ;     (fresh (l s out)
 ;       (appendo l s out)
 ;       (== (cons l (cons s (cons out '()))) q)))
@@ -163,7 +163,7 @@
 ;   (((_.0 _.1 _.2) _.3 (_.0 _.1 _.2 . _.3))) 
 ;   (((_.0 _.1 _.2 _.3) _.4 (_.0 _.1 _.2 _.3 . _.4)))))
 
-; (test 'sometimeso-0
+; (test 'sometimeso-0       ;;* Interesting note: with subsumsion guards, this is unable to produce more than one answer
 ;   (run 1 (q) (sometimeso q))
 ;   '((#t) (#t) (#t) (#t) (#t)))
 

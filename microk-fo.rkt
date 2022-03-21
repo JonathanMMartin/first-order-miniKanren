@@ -173,19 +173,29 @@
     
     ((disj? g)         (let* ((g1 (disj-g1 g))
                               (g2 (disj-g2 g))
-                              (g1-ha (has-answer? g1))
-                              (g2-ha (has-answer? g2)))
-                          (cond
-                            ((and g1-ha g2-ha) (disj (extract-answer g1) (extract-answer g2)))
-                            (g1-ha (extract-answer g1))
-                            (g2-ha  (extract-answer g2))
-                            (else   (error "I don't... WHAT")))))
+                              (a (if (has-answer? g1) (extract-answer g1) (extract-answer g2)))
+                              (B (if (has-answer? g1) g2 g1)))
+                          (cons (car a) (disj (cdr a) B))))
+                          
+                          ; (cond
+                          ;   ((and g1-ha g2-ha) (disj (extract-answer g1) (extract-answer g2)))
+                          ;   (g1-ha (extract-answer g1))
+                          ;   (g2-ha  (extract-answer g2))
+                          ;   (else   (error "I don't... WHAT")))))
     
     ((conj? g)         (let* ((g1 (conj-g1 g))
                               (g2 (conj-g2 g))
-                              (a1 (extract-answer g1))
-                              (a2 (extract-answer g2)))
-                          (cons (conj (car a1) (car a2)) (conj (cdr a1) (cdr a2)))))    
+                              (g1 (extract-answer g1))
+                              (g2 (extract-answer g2))
+                              (A (car g1))
+                              (B (cdr g1))
+                              (C (car g2))
+                              (D (cdr g2)))
+                          (cond
+                            ((and (false? B) (false? D)) (cons (conj A C) (false)))
+                            ((false? B)                  (cons (conj A C) (conj A D)))
+                            ((false? D)                  (cons (conj A C) (conj B C)))
+                            (else                        (cons (conj A C) (disj (conj A D) (disj (conj B C) (conj B D))))))))    
     
     ((typeo? g)        (cons g (false)))
     ((not-typeo? g)    (cons g (false)))
@@ -242,9 +252,11 @@
         (if verbose? (display-and-continue "\nnorm g: " g (const #f) #t) #f)
         (cond
           ((decidable? g) (if verbose? (display-and-continue "g is dec" g) g))
-          ((has-answer? inner-g) (let* ((answer (extract-answer inner-g))
-                                        (g1 (set-inner-goal g answer))
-                                        (g2 (set-inner-goal g (conj (negate-goal answer) inner-g))))
+          ((has-answer? inner-g) (let* ((extracted (extract-answer inner-g))
+                                        (answer (normalize-goal (car extracted)))
+                                        (remaining (cdr extracted))
+                                        (g1 (set-inner-goal g (normalize-extracted answer)))
+                                        (g2 (set-inner-goal g remaining))) ;(conj (negate-goal answer) remaining))))
                                     (disj g1 g2)))
           (verbose?     (display-and-continue "nothing is good, we unfold" g (lambda (x) (simplify (unfold x) verbose? logs?)))) 
           (else         (simplify (unfold g) verbose? logs?)))))))
@@ -308,8 +320,8 @@
       ((universal vlst h)     (normalize-universal vlst h verbose? double-negate?))
       
       ;; Rewrites for user defined relations
-      ;((relate     thunk des) (normalize-relate thunk des #f verbose?))
-      ;((not-relate thunk des) (normalize-relate thunk des #t verbose?))
+      ((relate     thunk des) (normalize-relate thunk des #f verbose?))
+      ((not-relate thunk des) (normalize-relate thunk des #t verbose?))
       
       (g                      (cond
                                 ((typeo? g)     (let ((t (typeo-t g))) (if (var? t) g (if ((typeo->type? g) t) (true) (false))))) ;; Generalized type constraint
@@ -355,9 +367,10 @@
                 ((true? g2)   g1)               ;; A and True = A
                 ((false? g2)  (false))          ;; A and False = False
                 ((or (==? g1) (typeo? g1) (not-typeo? g1))
-                  (let ((g2 (if (==? g1)
-                                (substitute-term g2 (==-t2 g1) (==-t1 g1) verbose?)
-                                (apply-type g2 (typeo-t g1) (typeo->type? g1) (not-typeo? g1) verbose?))))
+                  (let* ((g1 (if (==? g1) (== (prep-subsititution (==-t1 g1) g2) (==-t2 g1)) g1))
+                         (g2 (if (==? g1)
+                                 (substitute-term g2 (==-t2 g1) (==-t1 g1) verbose?) ;(substitute-term g2 (==-t2 g1) (==-t1 g1) verbose?)
+                                 (apply-type g2 (typeo-t g1) (typeo->type? g1) (not-typeo? g1) verbose?))))
                     (match g2
                       ((true)   g1)
                       ((false)  (false))
@@ -423,8 +436,18 @@
                           ((and g1-use-var? g2-use-var?) (existential vars-used g))
                           (g1-use-var?                   (disj g2 (normalize-goal (existential vars-used g1) verbose? double-negate?)))
                           (else                          (disj g1 (normalize-goal (existential vars-used g2) verbose? double-negate?))))))
+      ((contains-equality-on-universal g vlst '()) (false))
       ((existential? g) (normalize-goal (existential (append vars-used (existential-vlst g)) (existential-g g)) verbose? double-negate?))
       (else             (existential vars-used g)))))
+
+(define (contains-equality-on-universal g vlst acc)
+  (match g
+    ((== t1 t2) (or (and (term-use-vlst? t1 vlst) (term-use-vlst? t2 acc)) (and (term-use-vlst? t2 vlst) (term-use-vlst? t1 acc))))
+    ((disj g1 g2) (and (contains-equality-on-universal g1 vlst acc) (contains-equality-on-universal g2 vlst acc)))
+    ((conj g1 g2) (or (contains-equality-on-universal g1 vlst acc) (contains-equality-on-universal g2 vlst acc)))
+    ((universal ulst h) (contains-equality-on-universal h vlst (append acc ulst)))
+    ((existential ulst h) (contains-equality-on-universal h vlst acc))
+    (_ #f)))
 
 (define (normalize-universal vlst g [verbose? #f] [double-negate? #t] [induction? #t])
   (cond
@@ -497,6 +520,79 @@
                  (else #f)))
              (_  #f))))
     (if h (contin h) (body (relate thunk des)))))
+
+
+
+(define (normalize-extracted g)
+  (remove-if-used-once g))
+;   (match g
+;     ((conj g1 g2) (conj (normalize-extracted g1) (normalize-extracted g2)))
+
+    
+;     ((existential vlst (conj h1 (universal ulst (existential wlst (conj h2 (conj h3 (conj h4 h5))))))) (existential vlst (conj h1 (universal ulst (existential wlst (conj h2 (conj h3 h4)))))))
+;     (_ g)
+;     ))
+  
+  ; (cond
+  ;   ((existential? g) (existential (existential-vlst g) (normalize-extracted (existential-g g))))
+  ;   ((universal? g) ())
+  ;   (else g)))
+
+(define (num-used-v-in-g g v acc)
+  (cond
+    ((true? g)         acc)
+    ((false? g)        acc)
+    ((==? g)           (if (or (equal? v (==-t1 v) (equal? v (==-t2 v))))
+                           (+ 1 acc)
+                           acc))
+    ((=/=? g)          (if (or (equal? v (=/=-t1 v) (equal? v (=/=-t2 v))))
+                           (+ 1 acc)
+                           acc))
+    ((conj? g)         (and (has-answer? (conj-g1 g)) (has-answer? (conj-g2 g))))
+    ((typeo? g)        (if (goal-use-var? v) (+ 1 acc) acc))
+    ((not-typeo? g)    (if (goal-use-var? v) (+ 1 acc) acc))
+    ((existential? g)  (num-used-v-in-g (existential-g g) v acc))
+    ((universal? g)    (num-used-v-in-g (universal-g g) v acc))
+    (else              (error "should not reach here!"))))
+
+(define (eliminate-var g v)
+  (cond
+    ((true? g)         g)
+    ((false? g)        g)
+    ((==? g)           (if (or (equal? v (==-t1 v) (equal? v (==-t2 v))))
+                           (true)
+                           g))
+    ((=/=? g)          (if (or (equal? v (=/=-t1 v) (equal? v (=/=-t2 v))))
+                           (true)
+                           g))
+    ((conj? g)         (and (has-answer? (conj-g1 g)) (has-answer? (conj-g2 g))))
+    ((typeo? g)        (if (goal-use-var? v) (true) g))
+    ((not-typeo? g)    (if (goal-use-var? v) (true) g))
+    ((existential? g)  (existential (existential-vlst g) (eliminate-var (existential-g g) v)))
+    ((universal? g)    (universal (universal-vlst g) (eliminate-var (universal-g g) v)))
+    (else              (error "should not reach here!"))))
+
+(define (eliminate-vlst g)
+  (foldl (lambda (v h) (if (equal? 1 (num-used-v-in-g h v 0))
+                           (eliminate-var h v)
+                           h)) g (existential-vlst g)))
+      ;                         (eliminate-var (remove-if-used-once h) v)
+      ;                         (existential v (remove-if-used-once h)))))))
+      
+      ; (if (equal? 1 (num-used-v-in-g g v 0))
+      ;                         (eliminate-var (remove-if-used-once h) v)
+      ;                         (existential v (remove-if-used-once h)))))
+
+(define (remove-if-used-once g)
+  (match g
+    ((conj g1 g2)            (conj (remove-if-used-once g1) (remove-if-used-once g2)))
+    ((existential vlst h)    (eliminate-vlst (existential vlst (remove-if-used-once h))))
+    ((universal vlst h)      (universal vlst (remove-if-used-once h)))
+    (_                       g)))
+
+
+
+
 
 (define (combine-diseqs g)
   (match g
@@ -599,6 +695,22 @@
                             (term-use-var? (typeo-t g) v)
                             (error "goal-use-var?: Can't check goal" g)))))
 
+(define (prep-subsititution t h)
+  (if (list? t)
+      (match h
+        ((== s1 s2) (if (var? s2) (term-replace t s2 s1) t))
+        ((conj h1 h2) (prep-subsititution (prep-subsititution t h1) h2))
+        (_ t))
+      t))
+
+(define (substitute-simplify g h) ;; This fucntion looks kinda sus, don't use it anywhere - Maryam
+  (match h
+    ((true) g)
+    ((false) g)
+    ((== t1 t2) (if (var? t2) (substitute-simplify (substitute-term g t2 t1) (true)) g)) ;; var? might be redudent
+    ((conj g1 g2) (substitute-simplify (substitute-simplify g g1) g2))
+    (_ g)))
+
 ;; substitute v with term everywhere in g
 (define (substitute-term g v term [verbose? #f]) ;; TODO : Try to reduce the number of times that we call normalize-goal.
   (begin
@@ -621,7 +733,7 @@
 
 (define (term-replace t v term)
   (if (pair? t)
-      (cons (if (equal? (car t) v) term (car t)) (term-replace (cdr t) v term))
+      (cons (term-replace (car t) v term) (term-replace (cdr t) v term))
       (if (equal? t v) term t)))
 
 (define (apply-type g v type? [not-type? #f] [verbose? #f]) ;; TODO : Try to reduce the number of times that we call normalize-goal.
