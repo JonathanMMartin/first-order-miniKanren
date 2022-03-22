@@ -15,10 +15,14 @@
                         ,e.then
                         ,e.else))       
             (accesso input accessors.rhs v.rhs)
+            ; (program-evalo input e.then value)
+            ; (program-evalo input e.else value)))))
             (conde ;((== e.then e.else) (== e.then value))
                    ((==  v.lhs v.rhs)
+                    ;(=/= e.else `(quote ,value))
                     (program-evalo input e.then value))
                    ((=/= v.lhs v.rhs)
+                    ;(=/= e.then `(quote ,value))
                     (program-evalo input e.else value)))))))
 
 (define-relation (accesso input accessors value)
