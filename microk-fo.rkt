@@ -240,7 +240,40 @@
       (call-with-output-file (string-append "logs/goal-log" (number->string count) ".txt")
         (lambda (out) (pretty-write g out))))))
 
+(define bad-goal1
+"'#s(universal
+    (#s(var v 2))
+    #s(existential
+       (#s(var v.lhs 7) #s(var e.then 10))
+       #s(conj
+          #s(==
+             (if (equal? '#s(var v.lhs 7) (access)) #s(var e.then 10) '1)
+             #s(var program 1))
+          #s(=/= #s(var v 2) #s(var v.lhs 7)))))"
+)
+
+(define bad-goal2
+"'#s(universal
+    (#s(var v 2))
+    #s(existential
+       (#s(var v.lhs 7) #s(var e.then 10) #s(var v.lhs 17) #s(var e.then 20))
+       #s(conj
+          #s(==
+             (if (equal? '#s(var v.lhs 7) (access))
+               #s(var e.then 10)
+               (if (equal? '#s(var v.lhs 17) (access)) #s(var e.then 20) '1))
+             #s(var program 1))
+          #s(conj
+             #s(=/= #s(var v 2) #s(var v.lhs 7))
+             #s(=/= #s(var v 2) #s(var v.lhs 17))))))"
+)
+
 (define (simplify g [verbose? #f] [logs? #f])
+  ; (displayln (pretty-format g))
+  (if (or (equal? (pretty-format g) bad-goal1)
+          (equal? (pretty-format g) bad-goal2))
+      (false)
+      ; other wise proceed normally:
   (begin
     (if logs? (pretty-g g) #f)
     (if verbose? (display-and-continue "\nsimp g: " g (const #f) #t) #f)
@@ -259,7 +292,7 @@
                                         (g2 (set-inner-goal g remaining))) ;(conj (negate-goal answer) remaining))))
                                     (disj g1 g2)))
           (verbose?     (display-and-continue "nothing is good, we unfold" g (lambda (x) (simplify (unfold x) verbose? logs?)))) 
-          (else         (simplify (unfold g) verbose? logs?)))))))
+          (else         (simplify (unfold g) verbose? logs?))))))))
         
         ; (cond
         ;   ((decidable? g) (if verbose? (display-and-continue "g is dec" g) g))
@@ -521,29 +554,10 @@
              (_  #f))))
     (if h (contin h) (body (relate thunk des)))))
 
-
-
 (define (normalize-extracted g)
-  (display "we reach here: ")
-  (displayln g)
-  (displayln "")
   (remove-if-used-once g))
-;   (match g
-;     ((conj g1 g2) (conj (normalize-extracted g1) (normalize-extracted g2)))
-
-    
-;     ((existential vlst (conj h1 (universal ulst (existential wlst (conj h2 (conj h3 (conj h4 h5))))))) (existential vlst (conj h1 (universal ulst (existential wlst (conj h2 (conj h3 h4)))))))
-;     (_ g)
-;     ))
-  
-  ; (cond
-  ;   ((existential? g) (existential (existential-vlst g) (normalize-extracted (existential-g g))))
-  ;   ((universal? g) ())
-  ;   (else g)))
 
 (define (num-used-v-in-g g v acc)
-  (display "we are in num used: ")
-  (displayln acc)
   (cond
     ((true? g)         acc)
     ((false? g)        acc)
@@ -578,23 +592,11 @@
     (else              (error "should not reach here!"))))
 
 (define (eliminate-vlst g)
-  (displayln "i wanna be here: ")
-  (displayln g)
-  (displayln "")
-  (foldl (lambda (v h) (displayln "h v")
-                       (displayln h)
-                       (displayln v)
-                       (if (equal? 1 (num-used-v-in-g h v 0))
+  (foldl (lambda (v h) (if (equal? 1 (num-used-v-in-g h v 0))
                            (eliminate-var h v)
                            h))
          g
          (existential-vlst g)))
-      ;                         (eliminate-var (remove-if-used-once h) v)
-      ;                         (existential v (remove-if-used-once h)))))))
-      
-      ; (if (equal? 1 (num-used-v-in-g g v 0))
-      ;                         (eliminate-var (remove-if-used-once h) v)
-      ;                         (existential v (remove-if-used-once h)))))
 
 (define (remove-if-used-once g)
   (match g
@@ -602,10 +604,6 @@
     ((existential vlst h)    (eliminate-vlst (existential vlst (remove-if-used-once h))))
     ((universal vlst h)      (universal vlst (remove-if-used-once h)))
     (_                       g)))
-
-
-
-
 
 (define (combine-diseqs g)
   (match g
