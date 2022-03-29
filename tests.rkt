@@ -104,24 +104,24 @@
                  (printf "FAILURE\nEXPECTED : ~s\nACTUAL   : ~s\n"
                          expected actual))))))))
 
-; (include "tests-unify.rkt")
-; (include "tests-disunify.rkt")
-; (include "tests-symbolo.rkt")
-; (include "tests-stringo.rkt")
-; (include "tests-numbero.rkt")
-; (include "tests-pairo.rkt")
-; (include "tests-listo.rkt")
-; (include "tests-symbolo-numbero.rkt")
-; (include "tests-not-symbolo.rkt")
-; (include "tests-not-stringo.rkt")
-; (include "tests-not-numbero.rkt")
-; (include "tests-not-pairo.rkt")
-; (include "tests-not-listo.rkt")
-; (include "tests-not-symbolo-not-numbero.rkt")
-; (include "tests-implication.rkt")
-; (include "tests-forall.rkt")
-; (include "tests-forall-undecidable.rkt")
-(include "tests-matcho-evalo.rkt")
+(include "tests-unify.rkt")
+(include "tests-disunify.rkt")
+(include "tests-symbolo.rkt")
+(include "tests-stringo.rkt")
+(include "tests-numbero.rkt")
+(include "tests-pairo.rkt")
+(include "tests-listo.rkt")
+(include "tests-symbolo-numbero.rkt")
+(include "tests-not-symbolo.rkt")
+(include "tests-not-stringo.rkt")
+(include "tests-not-numbero.rkt")
+(include "tests-not-pairo.rkt")
+(include "tests-not-listo.rkt")
+(include "tests-not-symbolo-not-numbero.rkt")
+(include "tests-implication.rkt")
+(include "tests-forall.rkt")
+(include "tests-forall-undecidable.rkt")
+; (include "tests-matcho-evalo.rkt")
 
 ; (include "tests-rewrite.rkt")
 
@@ -164,7 +164,7 @@
 ;   (((_.0 _.1 _.2 _.3) _.4 (_.0 _.1 _.2 _.3 . _.4)))))
 
 ; (test 'sometimeso-0       ;;* Interesting note: with subsumsion guards, this is unable to produce more than one answer
-;   (run 1 (q) (sometimeso q))
+;   (run 5 (q) (sometimeso q))
 ;   '((#t) (#t) (#t) (#t) (#t)))
 
 ; (test 'choices-1

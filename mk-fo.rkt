@@ -23,6 +23,7 @@
   fresh
   conde
   forall
+  implication
   query
   run
   run*

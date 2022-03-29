@@ -10,12 +10,12 @@
   (syntax-rules ()
     ((_)                succeed)
     ((_ g)              g)
-    ((_ gs ... g-final) (conj (conj* gs ...) g-final))))
+    ((_ g gs ...) (conj (list g gs ...)))))
 (define-syntax disj*
   (syntax-rules ()
     ((_)           fail)
     ((_ g)         g)
-    ((_ g0 gs ...) (disj g0 (disj* gs ...)))))
+    ((_ g0 gs ...) (disj (list g0 gs ...)))))
 ;; High level goals
 (define-syntax fresh
   (syntax-rules ()
@@ -33,6 +33,10 @@
       (conj* g0 gs ...))
     ((_ (x xs ...) g0 gs ...)
       (let ((x (var/new 'x)) (xs (var/new 'xs)) ...) (universal (list x xs ...) (conj* g0 gs ...))))))
+(define-syntax implication
+  (syntax-rules ()
+    ((_ (g gs ...) (h hs ...))
+      (imply (conj* g gs ...) (conj* h hs ...)))))
 ;; Queries
 (define-syntax query
   (syntax-rules ()

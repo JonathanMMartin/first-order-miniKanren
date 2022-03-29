@@ -30,15 +30,15 @@
    '())
 
 (test 'undeciable-5b
-   (run 1 (q) (forall (v) (fresh (a) (imply (== v (cons a '())) (appendo v '() v)))))
+   (run 1 (q) (forall (v) (fresh (a) (implication ((== v (cons a '()))) ((appendo v '() v))))))
    '((_.0)))
 
 (test 'undeciable-5b-0.5
-    (run 1 (q) (forall (v) (fresh (a) (imply (== v (cons a '())) (appendo v 1 v)))))
+    (run 1 (q) (forall (v) (fresh (a) (implication ((== v (cons a '()))) ((appendo v 1 v))))))
     '((_.0)))
 
 (test 'undeciable-5b-1
-   (run 1 (q) (forall (v) (fresh (a) (imply (== v (cons a '())) (appendo v q v)))))
+   (run 1 (q) (forall (v) (fresh (a) (implication ((== v (cons a '()))) ((appendo v q v))))))
    '((_.0)))
 
 (test 'undeciable-5b-1.5
@@ -46,27 +46,27 @@
    '())
 
 (test 'undeciable-5b-2
-   (run 1 (q) (forall (v) (forall (a) (imply (== v (cons a '())) (appendo v q v)))))
+   (run 1 (q) (forall (v) (forall (a) (implication ((== v (cons a '()))) ((appendo v q v))))))
    '((())))
 
 (test 'undeciable-5c                         
-   (run 1 (q) (forall (v) (imply (fresh (a) (== v (cons a '()))) (appendo v '() v))))
+   (run 1 (q) (forall (v) (implication ((fresh (a) (== v (cons a '())))) ((appendo v '() v)))))
    '((_.0)))
 
 (test 'undeciable-5c-1
-   (run 1 (q) (forall (v) (imply (fresh (a) (== v (cons a '()))) (appendo v q v))))
+   (run 1 (q) (forall (v) (implication ((fresh (a) (== v (cons a '())))) ((appendo v q v)))))
    '((())))
 
 (test 'undeciable-5d
-   (run 1 (q) (forall (v) (imply (listo v) (appendo v '() v))))
+   (run 1 (q) (forall (v) (implication ((listo v)) ((appendo v '() v)))))
    '((_.0)))
 
 (test 'undeciable-5d-1
-   (run 1 (q) (forall (v) (imply (listo v) (appendo v q v))))
+   (run 1 (q) (forall (v) (implication ((listo v)) ((appendo v q v)))))
    '((())))
 
 (test 'undeciable-5d-2
-   (run 2 (q) (forall (v) (imply (listo v) (appendo v q v))))
+   (run 2 (q) (forall (v) (implication ((listo v)) ((appendo v q v)))))
    '((())))
 
 (test 'undeciable-6
@@ -80,4 +80,3 @@
 (test 'undeciable-8
    (run 1 (q) (forall (x y z) (appendo x y z)))
    '())
-
