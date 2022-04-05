@@ -31,6 +31,10 @@
 
 (require "common.rkt")
 
+(define verbose? #f)
+(define logs? #f)
+(define badgoal-check? #f)
+
 ;; first-order microKanren
 (struct true        ()                       #:prefab)
 (struct false       ()                       #:prefab)
@@ -57,6 +61,8 @@
 (struct mplus       (mplus-s1 mplus-s2)      #:prefab)
 (struct pause       (pause-state pause-goal) #:prefab)
 
+(include "badgoals.rkt")
+
 (define (negate-goal g)
   (cond
     ((true? g)        (false))
@@ -79,7 +85,7 @@
   (if (mature? s) s (mature (step s))))
 
 (define (start st g)
-  (let* ((g (simplify g #f #f))
+  (let* ((g (simplify g))
          (g (combine-diseqs g)))
     (match g
       ((true) (state->stream st))
@@ -113,7 +119,7 @@
         (step (mplus (pause st (negate-goal g1))
                      (pause st (conj (list g1 g2))))))
       ((existential v g) (step (pause st g)))
-      ((universal v g) (error "not enough rules: forall" (universal v g)))
+      ((universal v g) (if (and badgoal-check? (badgoal? (universal v g))) (start st (false)) (error "not enough rules: forall" (universal v g))))
       )))
 
 (define (step s)
@@ -243,46 +249,13 @@
       (call-with-output-file (string-append "logs/goal-log" (number->string count) ".txt")
         (lambda (out) (pretty-write g out))))))
 
-(define bad-goal1
-"'#s(universal
-    (#s(var v 2))
-    #s(existential
-       (#s(var v.lhs 7) #s(var e.then 10))
-       #s(conj
-          #s(==
-             (if (equal? '#s(var v.lhs 7) (access)) #s(var e.then 10) '1)
-             #s(var program 1))
-          #s(=/= #s(var v 2) #s(var v.lhs 7)))))"
-)
-
-(define bad-goal2
-"'#s(universal
-    (#s(var v 2))
-    #s(existential
-       (#s(var v.lhs 7) #s(var e.then 10) #s(var v.lhs 17) #s(var e.then 20))
-       #s(conj
-          #s(==
-             (if (equal? '#s(var v.lhs 7) (access))
-               #s(var e.then 10)
-               (if (equal? '#s(var v.lhs 17) (access)) #s(var e.then 20) '1))
-             #s(var program 1))
-          #s(conj
-             #s(=/= #s(var v 2) #s(var v.lhs 7))
-             #s(=/= #s(var v 2) #s(var v.lhs 17))))))"
-)
-
-(define (simplify g [verbose? #f] [logs? #f])
-  ; (displayln (pretty-format g))
-  (if (or (equal? (pretty-format g) bad-goal1)
-          (equal? (pretty-format g) bad-goal2))
-      (false)
-      ; other wise proceed normally:
+(define (simplify g)
   (begin
     (if logs? (pretty-g g) #f)
     (if verbose? (display-and-continue "\nsimp g: " g (const #f) #t) #f)
     (let* ((g (float-existential g))
-           (g (normalize-goal g verbose?))
-           (inner-g (get-inner-goal g)))
+          (g (normalize-goal g))
+          (inner-g (get-inner-goal g)))
       (begin
         (if logs? (pretty-g g) #f)
         (if verbose? (display-and-continue "\nnorm g: " g (const #f) #t) #f)
@@ -294,19 +267,19 @@
                                         (g1 (set-inner-goal g (normalize-extracted answer)))
                                         (g2 (set-inner-goal g remaining))) ;(conj (negate-goal answer) remaining))))
                                     (if verbose? (display-and-continue "\ngoal after extraction: " (disj (list g1 g2)) identity #t) (disj (list g1 g2)))))
-          (verbose?     (display-and-continue "nothing is good, we unfold" g (lambda (x) (simplify (unfold x) verbose? logs?)))) 
-          (else         (simplify (unfold g) verbose? logs?))))))))
+          (verbose?     (display-and-continue "nothing is good, we unfold" g (lambda (x) (simplify (unfold x))))) 
+          (else         (simplify (unfold g))))))))
 
-(define (normalize-goal g [verbose? #f] [double-negate? #t])
+(define (normalize-goal g [double-negate? #t])
   (begin
     (if verbose? (display-and-continue "\nNormalizing: " g (const #f) #t) #f)
     (match g
       ;; Remove lists/pairs
-      ((== (cons f1 r1) (cons f2 r2)) (normalize-goal (conj (list (== f1 f2) (== r1 r2))) verbose?))
+      ((== (cons f1 r1) (cons f2 r2)) (normalize-goal (conj (list (== f1 f2) (== r1 r2)))))
       ((== (cons f1 r1) t2) (if (var? t2) (== (cons f1 r1) t2) (false)))
       ((== t1 (cons f2 r2)) (if (var? t1) (== (cons f2 r2) t1) (false)))
 
-      ((=/= (cons f1 r1) (cons f2 r2)) (normalize-goal (disj (list (=/= f1 f2) (=/= r1 r2))) verbose?))
+      ((=/= (cons f1 r1) (cons f2 r2)) (normalize-goal (disj (list (=/= f1 f2) (=/= r1 r2)))))
       ((=/= (cons f1 r1) t2) (if (var? t2) (=/= (cons f1 r1) t2) (true)))
       ((=/= t1 (cons f2 r2)) (if (var? t1) (=/= (cons f2 r2) t1) (true)))
 
@@ -325,14 +298,14 @@
                                 ((or (contains-fresh? t1) (contains-fresh? t2)) (=/= t2 t1))
                                 (else (true))))
 
-      ((listo (cons _ y))    (normalize-goal (listo y) verbose?))
+      ((listo (cons _ y))    (normalize-goal (listo y)))
 
-      ((disj (cons h '()))   (normalize-goal h verbose?))
-      ((conj (cons h '()))   (normalize-goal h verbose?))
+      ((disj (cons h '()))   (normalize-goal h))
+      ((conj (cons h '()))   (normalize-goal h))
 
 
       ;; Recursive normalization
-      ((disj glst)          (let* ((glst (map/shortcircuit (lambda (x) (normalize-goal x verbose?)) '() glst (true) (false)))
+      ((disj glst)          (let* ((glst (map/shortcircuit normalize-goal '() glst (true) (false)))
                                    (glst (flatten-disj glst '()))
                                    (glst (sort glst goal-diseq-first<?)))
                               (match glst
@@ -341,9 +314,9 @@
                                 ((cons h hlst)
                                   (if (or (=/=? h) (typeo? h) (not-typeo? h))
                                       (let* ((hlst (if (=/=? h)
-                                                      (map (lambda (x) (substitute-term x (=/=-t2 h) (=/=-t1 h) verbose?)) hlst)
-                                                      (map (lambda (x) (apply-type x (typeo-t h) (typeo->type? h) (typeo? h) verbose?)) hlst)))
-                                             (hlst (normalize-goal (disj hlst) verbose?)))
+                                                       (map (lambda (x) (substitute-term x (=/=-t2 h) (=/=-t1 h))) hlst)
+                                                       (map (lambda (x) (apply-type x (typeo-t h) (typeo->type? h) (typeo? h))) hlst)))
+                                             (hlst (normalize-goal (disj hlst))))
                                         (match hlst
                                           ((disj qlst) (disj (cons h qlst)))
                                           ((true) (true))
@@ -351,8 +324,9 @@
                                           (hlst   (disj (list h hlst)))))
                                       (disj (cons h hlst))))
                                 (h h))))
-                            
-      ((conj glst)          (let* ((glst (map/shortcircuit (lambda (x) (normalize-goal x verbose?)) '() glst (false) (true)))
+
+      ;; Normalize conjunction                      
+      ((conj glst)          (let* ((glst (map/shortcircuit normalize-goal '() glst (false) (true)))
                                    (glst (flatten-conj glst '()))
                                    (glst (sort glst goal<?)))
                               (match glst
@@ -361,9 +335,9 @@
                                 ((cons h hlst)
                                   (if (or (==? h) (typeo? h) (not-typeo? h))
                                       (let* ((hlst (if (==? h)
-                                                       (map (lambda (x) (substitute-term x (==-t2 h) (==-t1 h) verbose?)) hlst)
-                                                       (map (lambda (x) (apply-type x (typeo-t h) (typeo->type? h) (not-typeo? h) verbose?)) hlst)))
-                                             (hlst (normalize-goal (conj hlst) verbose?)))
+                                                       (map (lambda (x) (substitute-term x (==-t2 h) (==-t1 h))) hlst)
+                                                       (map (lambda (x) (apply-type x (typeo-t h) (typeo->type? h) (not-typeo? h))) hlst)))
+                                             (hlst (normalize-goal (conj hlst))))
                                         (match hlst
                                           ((conj qlst) (conj (cons h qlst)))
                                           ((true) h)
@@ -372,19 +346,22 @@
                                       (conj (cons h hlst))))
                                 (h h))))
       
-      ((imply g1 g2)         (normalize-imply g1 g2 verbose?))
-      ((existential vlst h)  (normalize-existential vlst h verbose? double-negate?))
-      ((universal vlst h)    (normalize-universal vlst h verbose? double-negate?))
+      ((imply g1 g2)         (normalize-imply g1 g2))
+      ((existential vlst h)  (normalize-existential vlst h double-negate?))
+      ((universal vlst h)    (normalize-universal vlst h double-negate?))
       
       ;; Rewrites for user defined relations
-      ((relate     thunk des) (normalize-relate thunk des #f verbose?))
-      ((not-relate thunk des) (normalize-relate thunk des #t verbose?))
+      ((relate     thunk des) (normalize-relate thunk des #f))
+      ((not-relate thunk des) (normalize-relate thunk des #t))
       
       (g                      (cond
                                 ((typeo? g)     (let ((t (typeo-t g))) (if (var? t) g (if ((typeo->type? g) t) (true) (false))))) ;; Generalized type constraint
                                 ((not-typeo? g) (let ((t (typeo-t g))) (if (var? t) g (if ((typeo->type? g) t) (false) (true))))) ;; Generalized not-type constraint
                                 (else           g)))))) ;; No simplification possible
 
+;; A version of map that allows for early stoping.
+;; If (proc (car lst)) evaluates to the stop value, then we return a list containing just the stop value
+;; If (proc (car lst)) evaluates to the skip value, then (proc (car lst)) is ommited from the returned list.
 (define (map/shortcircuit proc acc lst stop skip)
   (if (null? lst)
       (reverse acc)
@@ -413,19 +390,30 @@
       (foldl (lambda (x acc) (replace-implication x acc)) con (conj-glst ant))
       (replace-assumption-with-true ant con)))
 
-(define (normalize-imply g1 g2 [verbose? #f])
-  (let ((g1 (normalize-goal g1 verbose?)))
+(define (replace-assumption-with-true ant con)
+  (if (goal=? ant con)
+      (true)
+      (match con
+        ((disj glst)        (disj (map (lambda (x) (replace-assumption-with-true ant x)) glst)))
+        ((conj glst)        (conj (map (lambda (x) (replace-assumption-with-true ant x)) glst)))
+        ((imply g1 g2)      (imply (replace-assumption-with-true ant g1) (replace-assumption-with-true ant g2)))
+        ((existential v h)  (existential v (replace-assumption-with-true ant h)))
+        ((universal v h)    (universal v (replace-assumption-with-true ant h)))
+        (_                  con))))
+
+(define (normalize-imply g1 g2)
+  (let ((g1 (normalize-goal g1)))
     (match g1
-      ((true)  (normalize-goal g2 verbose?))  ;; True -> A  = A
-      ((false) (true))                        ;; False -> A = True
-      (_       (let* ((g2 (normalize-goal g2 verbose?))
-                      (g2 (normalize-goal (replace-implication g1 g2) verbose?)))
+      ((true)  (normalize-goal g2))  ;; True -> A  = A
+      ((false) (true))               ;; False -> A = True
+      (_       (let* ((g2 (normalize-goal g2))
+                      (g2 (normalize-goal (replace-implication g1 g2))))
                   (cond
                     ((true? g2) (true))
-                    ((universal? g1) (normalize-goal (existential (universal-vlst g1) (imply (universal-g g1) g2)) verbose?)) ;; (forall v A) -> B = exists v (A -> B)
-                    ((existential? g1) (normalize-goal (universal (existential-vlst g1) (imply (existential-g g1) g2)) verbose?)) ;; (forall v A) -> B = exists v (A -> B)
-                    (else (let* ((g1 (normalize-goal (negate-goal g1) verbose?)))
-                      (normalize-goal (disj (list g1 g2)) verbose?)))))))))  ;; A -> B = ~A or B
+                    ((universal? g1) (normalize-goal (existential (universal-vlst g1) (imply (universal-g g1) g2)))) ;; (forall v A) -> B = exists v (A -> B)
+                    ((existential? g1) (normalize-goal (universal (existential-vlst g1) (imply (existential-g g1) g2)))) ;; (forall v A) -> B = exists v (A -> B)
+                    (else (let* ((g1 (normalize-goal (negate-goal g1))))
+                      (normalize-goal (disj (list g1 g2)))))))))))  ;; A -> B = ~A or B
 
 (define (term-use-vlst? t vlst)
   (match vlst
@@ -433,8 +421,8 @@
     ((cons v r) (or (term-use-var? t v) (term-use-vlst? t r)))))
 
 
-(define (normalize-existential vlst g [verbose? #f] [double-negate? #t])
-  (let* ((g (normalize-goal g verbose?))
+(define (normalize-existential vlst g [double-negate? #t])
+  (let* ((g (normalize-goal g))
          (vlst (filter (lambda (x) (goal-use-var? g x)) vlst))
          (vlst (sort vlst var<?))
          (vlst (remove-duplicates vlst var=?)))
@@ -444,12 +432,12 @@
           ((== _ t) (if (member t vlst) (true) (existential vlst g)))
           ((=/= _ _) (true))
           ((disj (cons (== _ t) glst)) (if (member t vlst) (true) (existential vlst g)))
-          ((conj (cons (== _ t) glst)) (if (member t vlst) (normalize-goal (existential vlst (conj glst)) verbose? double-negate?) (existential vlst g)))
+          ((conj (cons (== _ t) glst)) (if (member t vlst) (normalize-goal (existential vlst (conj glst)) double-negate?) (existential vlst g)))
           ((disj glst) (let-values (((stay go) (partition (lambda (h) (ormap (lambda (x) (goal-use-var? h x)) vlst)) glst)))
                                  (if (null? go)
                                      (existential vlst g)
-                                     (disj (cons (normalize-goal (existential vlst (disj stay)) verbose? double-negate?) go)))))
-          ((existential ulst h) (normalize-goal (existential (append vlst ulst) h) verbose? double-negate?))
+                                     (disj (cons (normalize-goal (existential vlst (disj stay)) double-negate?) go)))))
+          ((existential ulst h) (normalize-goal (existential (append vlst ulst) h) double-negate?))
           (_ (cond
                ((or (typeo? g) (not-typeo? g)) (true))
                ((contains-equality-on-universal g vlst '()) (false))
@@ -464,11 +452,11 @@
     ((existential ulst h) (contains-equality-on-universal h vlst acc))
     (_ #f)))
 
-(define (normalize-universal vlst g [verbose? #f] [double-negate? #t] [induction? #t])
+(define (normalize-universal vlst g [double-negate? #t] [induction? #t])
   (cond
     ((and #f induction? (imply? g)) ;; List induction rewrite rules
-      (let* ((g1 (normalize-goal (imply-g1 g) verbose?))
-             (g2 (normalize-goal (imply-g2 g) verbose?)))
+      (let* ((g1 (normalize-goal (imply-g1 g)))
+             (g2 (normalize-goal (imply-g2 g))))
         (cond
           ((goal=? g1 g2) (true))
           ((and (listo? g1) (member (listo-t g1) vlst))
@@ -479,10 +467,10 @@
                    (antecedent g2)
                    (consequent (universal (cons a vlst) (substitute-term g2 t (cons a t))))
                    (inductive-step (universal vlst (imply antecedent (unfold consequent)))))
-              (normalize-goal (conj (list base-case inductive-step)) verbose?)))
-          (else (normalize-universal vlst (imply g1 g2) verbose? double-negate? #f)))))
+              (normalize-goal (conj (list base-case inductive-step)))))
+          (else (normalize-universal vlst (imply g1 g2) double-negate? #f)))))
     (else 
-      (let* ((g (normalize-goal g verbose?))
+      (let* ((g (normalize-goal g))
              (vlst (filter (lambda (x) (goal-use-var? g x)) vlst))
              (vlst (sort vlst var<?))
              (vlst (remove-duplicates vlst var=?)))
@@ -498,39 +486,41 @@
                   ((disj glst) (let-values (((stay go) (partition (lambda (h) (ormap (lambda (x) (goal-use-var? h x)) vlst)) glst)))
                                  (if (null? go)
                                      (universal vlst g)
-                                     (disj (cons (normalize-goal (universal vlst (disj stay)) verbose? double-negate?) go)))))
-                  ((conj glst) (normalize-goal (conj (map (lambda (x) (universal vlst x)) glst)) verbose? double-negate?))
-                  ((universal ulst h) (normalize-goal (universal (append vlst ulst) h) verbose? double-negate?))
+                                     (disj (cons (normalize-goal (universal vlst (disj stay)) double-negate?) go)))))
+                  ((conj glst) (normalize-goal (conj (map (lambda (x) (universal vlst x)) glst)) double-negate?))
+                  ((universal ulst h) (normalize-goal (universal (append vlst ulst) h) double-negate?))
                   (_ (universal vlst g)))))))))
 
-(define (normalize-relate thunk des [not-relation? #f] [verbose? #f])
-  (let* ((body (if not-relation? negate-goal identity))
-         (contin (lambda (x) (normalize-goal (body x) verbose?)))
-         (h (match des
-             ((list func 'appendo (cons x xs) ys (cons z zs)) 
-               (conj (list (== x z) (func xs ys zs))))
-             ((list func 'appendo xs ys xsys)
-               (cond
-                 ((null? xs)         (== ys xsys))
-                 ((null? ys)         (conj (list (listo xs) (== xs xsys))))
-                 ((null? xsys)       (conj (list (== xs '()) (== ys '()))))
-                 ((equal? xs xsys)   (conj (list (listo xs) (== ys '()))))
-                 ((equal? ys xsys)   (== xs '()))
-                 (else #f)))
-             ((list func 'matcho scrutinee clauses result)
-               (cond
-                 ((null? clauses)    (== result 'FAILURE))
-                 (else #f)))
-             ((list func 'accesso (cons input unused) (cons 'fst accessors) value)
-               (func input accessors value))
-             ((list func 'accesso (cons unused input) (cons 'snd accessors) value)
-               (func input accessors value))
-             ((list func 'accesso input accessors value)
-               (cond
-                 ((null? accessors)  (== value input))
-                 (else #f)))
-             (_  #f))))
-    (if h (contin h) (body (relate thunk des)))))
+(define (normalize-relate thunk des [not-relation? #f])
+  (let* ((h (match des
+              ((list func 'appendo (cons x xs) ys (cons z zs)) 
+                (conj (list (== x z) (func xs ys zs))))
+              ((list func 'appendo xs ys xsys)
+                (cond
+                  ((null? xs)         (== ys xsys))
+                  ((null? ys)         (conj (list (listo xs) (== xs xsys))))
+                  ((null? xsys)       (conj (list (== xs '()) (== ys '()))))
+                  ((equal? xs xsys)   (conj (list (listo xs) (== ys '()))))
+                  ((equal? ys xsys)   (== xs '()))
+                  (else #f)))
+              ((list func 'matcho scrutinee clauses result)
+                (cond
+                  ((null? clauses)    (== result 'FAILURE))
+                  (else #f)))
+              ((list func 'accesso (cons input unused) (cons 'fst accessors) value)
+                (func input accessors value))
+              ((list func 'accesso (cons unused input) (cons 'snd accessors) value)
+                (func input accessors value))
+              ((list func 'accesso input accessors value)
+                (cond
+                  ((null? accessors)  (== value input))
+                  (else #f)))
+              (_  #f))))
+    (cond
+      ((and h not-relation?) (normalize-goal (negate-goal h)))
+      (h                     (normalize-goal h))
+      (not-relation?         (not-relate thunk des))
+      (else                  (relate thunk des)))))
 
 (define (normalize-extracted g)
   (remove-if-used-once g))
@@ -662,7 +652,7 @@
     ((not-relate _ des) (cdr (cdr des)))
     (_                  (error "relate-params: g is not a relate or not-relate" g))))
 
-(define (goal-use-var? g v [verbose? #f])
+(define (goal-use-var? g v)
   (if verbose? (display-and-continue "goal-use-var? " (cons v g) (const #f) #t) #f)
   (match g
     ((true)             #f)
@@ -680,28 +670,20 @@
                             (term-use-var? (typeo-t g) v)
                             (error "goal-use-var?: Can't check goal" g)))))
 
-(define (prep-subsititution t h)
-  (if (list? t)
-      (match h
-        ((== s1 s2) (if (var? s2) (term-replace t s2 s1) t))
-        ((conj (cons g glst)) (prep-subsititution (prep-subsititution t g) (conj glst)))
-        (_ t))
-      t))
-
-;; substitute v with term everywhere in g
-(define (substitute-term g v term [verbose? #f])
+;; replace v with term everywhere in g
+(define (substitute-term g v term)
   (begin
-    (if verbose? (display-and-continue "\nsubstitution: " (list v term g) (const #f) #t) #f)
+    (if verbose? (display-and-continue "\nsubstitution (v term g): " (list v term g) (const #f) #t) #f)
     (match g
       ((true)             (true))
       ((false)            (false))
-      ((disj glst)        (disj (map (lambda (x) (substitute-term x v term verbose?)) glst)))
-      ((conj glst)        (conj (map (lambda (x) (substitute-term x v term verbose?)) glst)))
+      ((disj glst)        (disj (map (lambda (x) (substitute-term x v term)) glst)))
+      ((conj glst)        (conj (map (lambda (x) (substitute-term x v term)) glst)))
       ((== t1 t2)         (== (term-replace t1 v term) (term-replace t2 v term)))
       ((=/= t1 t2)        (=/= (term-replace t1 v term) (term-replace t2 v term)))
-      ((imply g1 g2)      (imply (substitute-term g1 v term verbose?) (substitute-term g2 v term verbose?)))
-      ((existential q h)  (existential q (substitute-term h v term verbose?)))
-      ((universal q h)    (universal q (substitute-term h v term verbose?)))
+      ((imply g1 g2)      (imply (substitute-term g1 v term) (substitute-term g2 v term)))
+      ((existential q h)  (existential q (substitute-term h v term)))
+      ((universal q h)    (universal q (substitute-term h v term)))
       ((relate _ des)     (apply (car des) (map (lambda (arg) (if (equal? arg v) term arg)) (relate-params g))))
       ((not-relate _ des) (negate-goal (apply (car des) (map (lambda (arg) (if (equal? arg v) term arg)) (relate-params g)))))
       (_                  (if (or (typeo? g) (not-typeo? g))
@@ -713,21 +695,21 @@
       (cons (term-replace (car t) v term) (term-replace (cdr t) v term))
       (if (equal? t v) term t)))
 
-(define (apply-type g v type? [not-type? #f] [verbose? #f])
+(define (apply-type g v type? [not-type? #f])
   (match g
     ((true)             (true))
     ((false)            (false))
-    ((disj glst)        (disj (map (lambda (x) (apply-type x v type? not-type? verbose?)) glst)))
-    ((conj glst)        (conj (map (lambda (x) (apply-type x v type? not-type? verbose?)) glst)))
+    ((disj glst)        (disj (map (lambda (x) (apply-type x v type? not-type?)) glst)))
+    ((conj glst)        (conj (map (lambda (x) (apply-type x v type? not-type?)) glst)))
     ((== t1 t2)         (if (and (equal? v t2) (not (var? t1)) (eq? not-type? (type? t1)))
                             (false)
                             g))
     ((=/= t1 t2)        (if (and (equal? v t2) (not (var? t1)) (eq? not-type? (type? t1)))
                             (true)
                             g))
-    ((imply g1 g2)      (imply (apply-type g1 v type? not-type? verbose?) (apply-type g2 v type? not-type? verbose?)))
-    ((existential q h)  (existential q (apply-type h v type? not-type? verbose?)))
-    ((universal q h)    (universal q (apply-type h v type? not-type? verbose?)))
+    ((imply g1 g2)      (imply (apply-type g1 v type? not-type?) (apply-type g2 v type? not-type?)))
+    ((existential q h)  (existential q (apply-type h v type? not-type?)))
+    ((universal q h)    (universal q (apply-type h v type? not-type?)))
     (_                  (cond
                           ((and (typeo? g) (equal? v (typeo-t g)) (equal? (typeo->type? g) type?)) (if not-type? (false) (true)))
                           ((and (typeo? g) (equal? v (typeo-t g))) (if not-type? g (false)))
@@ -800,7 +782,7 @@
 
 (define (contains-equality-on-v? g v)
   (match g
-    ((== t1 t2)   (equal? t2 v))
+    ((== t1 t2)  (equal? t2 v))
     ((conj glst) (ormap (lambda (x) (contains-equality-on-v? x v)) glst))
     ((disj glst) (andmap (lambda (x) (contains-equality-on-v? x v)) glst))
     ((existential _ h) (contains-equality-on-v? h v))
@@ -825,17 +807,6 @@
     (_  (if not-type?
             (and (not-typeo? g) (equal? (typeo-t g) v))
             (and (typeo? g) (equal? (typeo-t g) v))))))
-
-(define (replace-assumption-with-true ant con)
-  (if (goal=? ant con)
-      (true)
-      (match con
-        ((disj glst)        (disj (map (lambda (x) (replace-assumption-with-true ant x)) glst)))
-        ((conj glst)        (conj (map (lambda (x) (replace-assumption-with-true ant x)) glst)))
-        ((imply g1 g2)      (imply (replace-assumption-with-true ant g1) (replace-assumption-with-true ant g2)))
-        ((existential v h)  (existential v (replace-assumption-with-true ant h)))
-        ((universal v h)    (universal v (replace-assumption-with-true ant h)))
-        (_                  con))))
 
 (define (goal<? g1 g2)
   (eqv? (goal-compare g1 g2) -1))
