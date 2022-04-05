@@ -63,6 +63,10 @@
 
 (include "badgoals.rkt")
 
+#|
+  Input: g is a goal
+  Output: negation of g
+|#
 (define (negate-goal g)
   (cond
     ((true? g)        (false))
@@ -141,6 +145,10 @@
     ((pause st g) (start st g))
     (_            s)))
 
+#|
+  Input: g is a goal
+  Output: True if and only if g does not use any user-defined relations
+|#
 (define (decidable? g)
   (cond
     ((true? g)         #t)
@@ -157,6 +165,12 @@
     ((not-relate? g)   #f)
     (else              #f)))
 
+#|
+  Input: g is a goal
+  Explores different branches of disjunctions available in g to see if
+  we can create a goal that does not use any user-defined relations.
+  Output: True if and only if g has a branch that does not use any user-defined relations
+|#
 (define (has-answer? g)
   (cond
     ((true? g)         #t)
@@ -174,6 +188,10 @@
     ((not-relate? g)   #f)
     (else              #f)))
 
+#|
+  Input: g is a goal such that (has-answer g) is true.
+  Output: Returns a branch of g that does not use any user-defined relations.
+|#
 (define (extract-answer g)
   (cond
     ((true? g)         (cons (true) (false)))
@@ -225,7 +243,10 @@
     ((not-relate? g)   (error "relate does not have an answer to extract"))
     (else              (displayln g) (error "how did you get here?"))))
 
-
+#|
+  Input: g is a goal
+  Output: Return g with one each user-defined relation unfolded only once
+|#
 (define (unfold g)
   (match g
     ((disj glst)          (disj (map unfold glst)))
@@ -237,11 +258,18 @@
     ((not-relate thunk _) (negate-goal (thunk)))
     (_                    g)))
 
+#|
+  Used for debugging purposes in verbose mode.
+|#
 (define (display-and-continue msg v [continue identity] [display-v? #f])
   (cond
     (display-v?   (display msg) (displayln v) (continue v))
     (else         (displayln msg) (continue v))))
 
+#|
+  Input: g is a goal
+  Pretty-print g and write it into a file logs/goal-log#.txt
+|#
 (define pretty-g
   (let ((count 0))
     (lambda (g)
@@ -249,6 +277,10 @@
       (call-with-output-file (string-append "logs/goal-log" (number->string count) ".txt")
         (lambda (out) (pretty-write g out))))))
 
+#|
+  Input: g is a goal
+  Output: a goal that is equivalent to g and solvable by MiniKanren.
+|#
 (define (simplify g)
   (begin
     (if logs? (pretty-g g) #f)
@@ -270,6 +302,13 @@
           (verbose?     (display-and-continue "nothing is good, we unfold" g (lambda (x) (simplify (unfold x))))) 
           (else         (simplify (unfold g))))))))
 
+#|
+  Input: g is a goal
+         doublenegate? is true if and onlt if we want to use the double negation
+                       rewrite rule.
+  Applies all rewrite rules to g in a bottom up manner.
+  Output: A goal that is equivalent to g.
+|#
 (define (normalize-goal g [double-negate? #t])
   (begin
     (if verbose? (display-and-continue "\nNormalizing: " g (const #f) #t) #f)
@@ -371,6 +410,9 @@
           ((equal? g skip) (map/shortcircuit proc acc (cdr lst) stop skip))
           (else            (map/shortcircuit proc (cons g acc) (cdr lst) stop skip))))))
 
+#|
+  Turns binary disjunctions into a list of goals.
+|#
 (define (flatten-disj glst acc)
   (match glst
     ('()                     (reverse acc))
@@ -378,6 +420,9 @@
     ((cons h hlst)           (flatten-disj hlst (cons h acc)))
     (g                       g)))
 
+#|
+  Turns binary conjunctions into a list of goals.
+|#
 (define (flatten-conj glst acc)
   (match glst
     ('()                     (reverse acc))
@@ -385,11 +430,23 @@
     ((cons h hlst)           (flatten-conj hlst (cons h acc)))
     (g                       g)))
 
+#|
+  Input: ant (antecedent) is a goal
+         con (consequent) is a goal
+  Looks for any instances of ant in con and replace it with true.
+  Output: con with instances of ant replaced with true.
+|#
 (define (replace-implication ant con)
   (if (conj? ant)
       (foldl (lambda (x acc) (replace-implication x acc)) con (conj-glst ant))
       (replace-assumption-with-true ant con)))
 
+#|
+  Input: ant (antecedent) is a goal
+         con (consequent) is a goal
+  Looks for any instances of ant in con and replace it with true.
+  Output: con with instances of ant replaced with true.
+|#
 (define (replace-assumption-with-true ant con)
   (if (goal=? ant con)
       (true)
@@ -401,6 +458,12 @@
         ((universal v h)    (universal v (replace-assumption-with-true ant h)))
         (_                  con))))
 
+#|
+  Input: g1 is a goal
+         g2 is a goal
+  Apply implication normalization rules to g1 and g2.
+  Output: A goal equivalent to (g1 => g2) with normalization rules applied bottom up.
+|#
 (define (normalize-imply g1 g2)
   (let ((g1 (normalize-goal g1)))
     (match g1
@@ -415,12 +478,23 @@
                     (else (let* ((g1 (normalize-goal (negate-goal g1))))
                       (normalize-goal (disj (list g1 g2)))))))))))  ;; A -> B = ~A or B
 
+#|
+  Input: t is a term
+         vlst is a list of variables
+  Output: Returns true if an only if at least one of the variables in vlst are used in term.
+|#
 (define (term-use-vlst? t vlst)
   (match vlst
     ('() #f)
     ((cons v r) (or (term-use-var? t v) (term-use-vlst? t r)))))
 
-
+#|
+  Input: vlst is a list of variables
+         g is a goal
+         double-negate? is true if and only if we want to apply double negation rules.
+  Apply existential normalization rules to vlst and g.
+  Output: A goal equivalent to (existential vlst g) with normalization rules applied bottom up.
+|#
 (define (normalize-existential vlst g [double-negate? #t])
   (let* ((g (normalize-goal g))
          (vlst (filter (lambda (x) (goal-use-var? g x)) vlst))
@@ -443,6 +517,13 @@
                ((contains-equality-on-universal g vlst '()) (false))
                (else (existential vlst g))))))))
 
+#|
+  Input: g is a goal
+         vlst is a list of variables
+         acc is the accumulator (should start as empty list)
+  Output: Returns true if and only if g forces an equality constraint on variables of vlst
+          or any universally quantified variables in g.
+|#
 (define (contains-equality-on-universal g vlst acc)
   (match g
     ((== t1 t2) (or (and (term-use-vlst? t1 vlst) (term-use-vlst? t2 acc)) (and (term-use-vlst? t2 vlst) (term-use-vlst? t1 acc))))
@@ -452,6 +533,13 @@
     ((existential ulst h) (contains-equality-on-universal h vlst acc))
     (_ #f)))
 
+#|
+  Input: vlst is a list of variables
+         g is a goal
+         double-negate? is true if and only if we want to apply double negation rules.
+  Apply universal normalization rules to vlst and g.
+  Output: A goal equivalent to (universal vlst g) with normalization rules applied bottom up.
+|#
 (define (normalize-universal vlst g [double-negate? #t] [induction? #t])
   (cond
     ((and #f induction? (imply? g)) ;; List induction rewrite rules
@@ -491,6 +579,14 @@
                   ((universal ulst h) (normalize-goal (universal (append vlst ulst) h) double-negate?))
                   (_ (universal vlst g)))))))))
 
+#|
+  Input: thunk is a thunk containing user-defined relation or its negation
+         des is description of the user-defined relation
+         not-relation? is true if and only if this is a negation of a user-defined relation
+  The normalization rules here are specific to user-relation defined in this project.
+  e.g. appendo, matcho, accesso
+  Output: A relation (or not-relation) with normalization rules applied bottom up.
+|#
 (define (normalize-relate thunk des [not-relation? #f])
   (let* ((h (match des
               ((list func 'appendo (cons x xs) ys (cons z zs)) 
@@ -522,9 +618,21 @@
       (not-relation?         (not-relate thunk des))
       (else                  (relate thunk des)))))
 
+#|
+  Input: g is a goal
+  Assume g is a result of the extrac-answer function. i.e., there are no disjunctions
+  in this goal.
+  Output: Returns a goal equivalent to g with normalization rules applied.
+|#
 (define (normalize-extracted g)
   (remove-if-used-once g))
 
+#|
+  Input: g is a goal
+         v is a variable
+         acc is the accumulator (start at 0)
+  Output: Number of times v is used in g in an equality or disequality goal.
+|#
 (define (num-used-v-in-g g v acc)
   (cond
     ((true? g)         acc)
@@ -542,6 +650,9 @@
     ((universal? g)    (num-used-v-in-g (universal-g g) v acc))
     (else              (error "should not reach here!"))))
 
+#|
+  Helper function for remove-if-used-once
+|#
 (define (eliminate-var g v)
   (cond
     ((true? g)         g)
@@ -559,6 +670,9 @@
     ((universal? g)    (universal (universal-vlst g) (eliminate-var (universal-g g) v)))
     (else              (error "should not reach here!"))))
 
+#|
+  Helper function for remove-if-used-once
+|#
 (define (eliminate-vlst g)
   (foldl (lambda (v h) (if (equal? 1 (num-used-v-in-g h v 0))
                            (eliminate-var h v)
@@ -566,6 +680,12 @@
          g
          (existential-vlst g)))
 
+#|
+  Input: g is a goal
+  If an existential variable is only used once in an equality/disequality, it is
+  inconsequential to the goal and can be removed.
+  Output: Returns a goal equivalent to g with inconsequential existential variables removed.
+|#
 (define (remove-if-used-once g)
   (match g
     ((conj glst)             (conj (map remove-if-used-once glst)))
@@ -573,6 +693,10 @@
     ((universal vlst h)      (universal vlst (remove-if-used-once h)))
     (_                       g)))
 
+#|
+  Combines disjunction of disequalities into disequality of lists.
+  This is used right before the goal is passed to MiniKanren.
+|#
 (define (combine-diseqs g)
   (match g
     ((disj (cons (=/= t1 t2) (cons (=/= s1 s2) '())))  (=/= (cons t1 s1) (cons t2 s2)))
@@ -652,6 +776,11 @@
     ((not-relate _ des) (cdr (cdr des)))
     (_                  (error "relate-params: g is not a relate or not-relate" g))))
 
+#|
+  Input: g is a goal
+         v is a variable
+  Output: Returns true if and only g uses v.
+|#
 (define (goal-use-var? g v)
   (if verbose? (display-and-continue "goal-use-var? " (cons v g) (const #f) #t) #f)
   (match g
@@ -671,6 +800,12 @@
                             (error "goal-use-var?: Can't check goal" g)))))
 
 ;; replace v with term everywhere in g
+#|
+  Input: g is a goal
+         v is a variable
+         term is a term or another variable
+  Output: Return a goal equivalent to g, where v is replaced by term everywhere.
+|#
 (define (substitute-term g v term)
   (begin
     (if verbose? (display-and-continue "\nsubstitution (v term g): " (list v term g) (const #f) #t) #f)
@@ -690,11 +825,24 @@
                               (type->goal (if (equal? (typeo-t g) v) term (typeo-t g)) (typeo->type? g) (not-typeo? g))
                               (error "substitute-term: Coudldn't parse goal" g)))))) 
 
+#|
+  Input: t is a term
+         v is variable
+         term is a term or variable
+  Output: Return a term equivalent to t, where v is replaced by term everywhere.
+|#
 (define (term-replace t v term)
   (if (pair? t)
       (cons (term-replace (car t) v term) (term-replace (cdr t) v term))
       (if (equal? t v) term t)))
 
+#|
+  Input: g is a goal
+         v is a variable
+         type? is the type function we should be considering
+         not-type? is true if and only if the constrain on v is a not-type constraint
+  Output: Enforce type? (or not-type?) on v by applying the appropriate rewrite rules.
+|#
 (define (apply-type g v type? [not-type? #f])
   (match g
     ((true)             (true))
@@ -729,6 +877,10 @@
     ((cons (existential vars g) glst) (float-existential-helper (append vars vacc) (cons g gacc) glst d?))
     ((cons g glst) (float-existential-helper vacc (cons g gacc) glst d?))))
 
+#|
+  Input: g is a goal
+  Output: A goal equivalent to g where existential quantifiers are floated to the top.
+|#
 (define (float-existential g)
   (match g
     ((disj glst) (let ((glst (map float-existential glst)))
@@ -759,9 +911,15 @@
       (existential (existential-vlst g) new-inner)
       new-inner))
 
+#|
+  Returns true if and only if two user-defined relations are equal.
+|#
 (define (relate=? g1 g2)
   (and (equal? (relate-name g1) (relate-name g2)) (equal? (relate-params g1) (relate-params g2))))
 
+#|
+  Returns true if and only if two goals g1 and g2 are equal (up to variable name).
+|#
 (define (goal=? g1 g2)    ;;* Assumes that g1 and g2 are normalized
   (match g1
     ((existential v h)  (and (existential? g2) (goal=? h (substitute-term (existential-g g2) (existential-vlst g2) v))))
@@ -780,6 +938,11 @@
 ;     ((relate _ _)       (and (not-relate? g2) (relate=? g1 g2)))
 ;     (_                  (and (not (or (disj/conj? g2) (imply? g2) (existential? g2) (universal? g2) (relate? g2))) (goal=? g1 (negate-goal g2))))))
 
+#|
+  Input: g is a goal
+         v is a variable
+  Output: Returns true if and only if there is an equality constraint on v in g.
+|#
 (define (contains-equality-on-v? g v)
   (match g
     ((== t1 t2)  (equal? t2 v))
@@ -789,6 +952,11 @@
     ((universal _ h)  (contains-equality-on-v? h v))
     (_ #f)))
 
+#|
+  Input: g is a goal
+         v is a variable
+  Output: Returns true if and only if there is a disequality constraint on v in g.
+|#
 (define (contains-disequality-on-v? g v)
   (match g
     ((=/= t1 t2)  (or (equal? t1 v) (equal? t2 v)))
@@ -798,6 +966,14 @@
     ((universal _ h)  (contains-disequality-on-v? h v))
     (_ #f)))
 
+#|
+  Input: g is a goal
+         v is a variable
+         not-type? is true if and only if we are looking for not-type constraints
+                   instead of type constraints
+  Output: Returns true if and only if there is a type or (not type) constraint
+          on v in g.
+|#
 (define (contains-typeo-on-v? g v [not-type? #f])
   (match g
     ((conj glst) (ormap (lambda (x) (contains-typeo-on-v? x v not-type?)) glst))
@@ -817,6 +993,9 @@
 (define (goal-list<? glst hlst)
   (eqv? (goal-list-compare glst hlst) -1))
 
+#|
+  Comparison function for goal lists to enforce canonical ordering.
+|#
 (define (goal-list-compare glst hlst)
   (cond
     ((< (length glst) (length hlst)) -1)
@@ -827,6 +1006,9 @@
                 (goal-list-compare (cdr glst) (cdr hlst))
                 compared-cars)))))
 
+#|
+  Comparison function for goals to enforce canonical ordering.
+|#
 (define (goal-compare g1 g2)
   (cond
     ((true? g1)         -1)
@@ -882,6 +1064,10 @@
     ((not-relate? g2)   1)
     (else               0)))
 
+#|
+  Comparison function for goals to enforce canonical ordering.
+  This function puts disequalities before equalities.
+|#
 (define (goal-diseq-first-compare g1 g2)
   (cond
     ((true? g1)         -1)
