@@ -14,11 +14,11 @@
   '((_.0)))
 
 (test 'forall-no-var-test-3 
-  (run 1 (x) (forall (v) (conj (== x 0) (== x 1))))
+  (run 1 (x) (forall (v) (== x 0) (== x 1)))
   '())
 
 (test 'forall-no-var-test-4
-  (run 2 (x) (forall (v) (disj (== x 0) (== x 1))))
+  (run 2 (x) (forall (v) (conde ((== x 0)) ((== x 1)))))
   '((0) (1)))
 
 (test 'forall-test-0
@@ -34,23 +34,23 @@
   '((_.0)))
 
 (test 'forall-test-3
- (run 1 (x) (forall (v) (disj (== v 1) (=/= v 1))))
+ (run 1 (x) (forall (v) (conde ((== v 1)) ((=/= v 1)))))
  '((_.0)))
 
 (test 'forall-test-4
- (run 1 (x) (forall (v) (disj (== v 1) (=/= 1 v))))
+ (run 1 (x) (forall (v) (conde ((== v 1)) ((=/= 1 v)))))
  '((_.0)))
 
 (test 'forall-test-5
- (run 1 (x) (forall (v) (conj (== v 1) (=/= 1 v))))
+ (run 1 (x) (forall (v) (== v 1) (=/= 1 v)))
  '())
 
 (test 'forall-test-6
- (run 1 (x) (forall (v) (disj (== v 1) (== x 1))))
+ (run 1 (x) (forall (v) (conde ((== v 1)) ((== x 1)))))
  '((1)))
 
 (test 'forall-test-7
- (run 1 (x) (forall (v) (conj (=/= x x) (== v 1))))
+ (run 1 (x) (forall (v) (=/= x x) (== v 1)))
  '())
 
 (test 'forall-test-8
@@ -70,119 +70,134 @@
  '())
 
 (test 'forall-imply-test-0
- (run 1 (x) (forall (v) (disj (== v 1) (imply (== v 1) (== 2 3)))))
+ (run 1 (x) (forall (v) 
+               (conde ((== v 1)) 
+                      ((implication ((== v 1)) ((== 2 3)))))))
  '((_.0)))
 
 (test 'forall-imply-test-1
- (run 1 (x) (forall (v) (disj (== v 1) (disj (numbero v) (imply (== v 1) (== 2 3))))))
+ (run 1 (x) (forall (v) 
+               (conde ((== v 1)) 
+                      ((numbero v)) 
+                      ((implication ((== v 1)) ((== 2 3)))))))
  '((_.0)))
 
 (test 'forall-imply-test-2
-  (run 1 (x) (forall (v) (imply (=/= x v) (=/= 1 v))))
-  '((1)))
+ (run 1 (x) (forall (v) (implication ((=/= x v)) ((=/= 1 v)))))
+ '((1)))
 
 (test 'forall-imply-test-3
-  (run 1 (x) (forall (v) (imply (== x v) (== v 1))))
-  '((1)))
+ (run 1 (x) (forall (v) (implication ((== x v)) ((== v 1)))))
+ '((1)))
 
 (test 'forall-multi-var-0
-   (run 1 (x) (forall (v w) (disj (== v w) (=/= v w))))
-   '((_.0)))
+ (run 1 (x) (forall (v w) (conde ((== v w)) ((=/= v w)))))
+ '((_.0)))
 
 (test 'forall-multi-var-1
-   (run 1 (x) (forall (v w) (disj (=/= v w) (conj (== x v) (== x w)))))
-   '())
+ (run 1 (x) (forall (v w) 
+               (conde ((=/= v w)) 
+                      ((== x v) (== x w)))))
+ '())
 
 (test 'forall-multi-var-2
-   (run 1 (x) (forall (v w) (disj (conj (== x v) (== x w)) (=/= v w))))
-   '())
+ (run 1 (x) (forall (v w) 
+               (conde ((== x v) (== x w)) 
+                      ((=/= v w)))))
+ '())
 
 (test 'forall-existential-0
-   (run 1 (x) (forall (v) (fresh (u) (== v 1))))
-   '())
+ (run 1 (x) (forall (v) (fresh (u) (== v 1))))
+ '())
 
 (test 'forall-existential-1
-   (run 1 (x) (forall (v) (fresh (u) (== u 1))))
-   '((_.0)))
+ (run 1 (x) (forall (v) (fresh (u) (== u 1))))
+ '((_.0)))
 
 (test 'forall-existential-2
-   (run 1 (x) (fresh (v) (forall (u) (== v u))))
-   '())
+ (run 1 (x) (fresh (v) (forall (u) (== v u))))
+ '())
 
 (test 'forall-existential-3
-   (run 1 (x) (fresh (v) (forall (u) (=/= v u))))
-   '())
+ (run 1 (x) (fresh (v) (forall (u) (=/= v u))))
+ '())
 
 (test 'forall-existential-4
-   (run 1 (x) (forall (v) (fresh (u) (=/= v u))))
-   '((_.0)))
+ (run 1 (x) (forall (v) (fresh (u) (=/= v u))))
+ '((_.0)))
 
 (test 'forall-existential-5
-   (run 1 (x) (forall (v) (fresh (u) (== v u))))
-   '((_.0)))
+ (run 1 (x) (forall (v) (fresh (u) (== v u))))
+ '((_.0)))
 
 (test 'forall-disj-0
-   (run 1 (x) (forall (v) (disj (numbero v) (=/= v 1))))
-   '((_.0)))
+ (run 1 (x) (forall (v) (conde ((numbero v)) ((=/= v 1)))))
+ '((_.0)))
 
 (test 'forall-disj-1
-   (run 1 (x) (forall (v) (disj (symbolo v) (numbero v))))
-   '())
+ (run 1 (x) (forall (v) (conde ((symbolo v)) ((numbero v)))))
+ '())
 
 (test 'forall-disj-2
-   (run 1 (x) (forall (v) (disj (symbolo v) (disj (numbero v) (stringo v)))))
-   '())
+ (run 1 (x) (forall (v) 
+               (conde ((symbolo v))
+                      ((numbero v)) 
+                      ((stringo v)))))
+ '())
 
 (test 'forall-disj-3
-   (run 1 (x) (forall (v) (disj (not-symbolo v) (not-numbero v))))
-   '((_.0)))
+ (run 1 (x) (forall (v) (conde ((not-symbolo v)) ((not-numbero v)))))
+ '((_.0)))
 
 (test 'universal-disj-4
-   (run 1 (x) (forall (v) (disj (not-symbolo v) (disj (not-numbero v) (not-stringo v)))))
-   '((_.0)))
+ (run 1 (x) (forall (v) 
+               (conde ((not-symbolo v)) 
+                      ((not-numbero v)) 
+                      ((not-stringo v)))))
+ '((_.0)))
 
 (test 'forall-disj-5
-   (run 1 (x) (forall (v) (disj (not-stringo v) (numbero v))))
+   (run 1 (x) (forall (v) (conde ((not-stringo v)) ((numbero v)))))
    '())
 
 (test 'forall-disj-6
-   (run 1 (x) (forall (v) (disj (== 1 v) (== 2 v))))
+   (run 1 (x) (forall (v) (conde ((== 1 v)) ((== 2 v)))))
    '())
 
 (test 'forall-disj-7
-   (run 1 (x) (forall (v) (disj (=/= 1 v) (=/= 2 v))))
+   (run 1 (x) (forall (v) (conde ((=/= 1 v)) ((=/= 2 v)))))
    '((_.0)))
 
 (test 'forall-conj-0
-   (run 1 (x) (forall (v) (conj (numbero v) (=/= v 1))))
+   (run 1 (x) (forall (v) (numbero v) (=/= v 1)))
    '())
 
 (test 'forall-conj-1
-   (run 1 (x) (forall (v) (conj (symbolo v) (numbero v))))
+   (run 1 (x) (forall (v) (symbolo v) (numbero v)))
    '())
 
 (test 'forall-conj-2
-   (run 1 (x) (forall (v) (conj (symbolo v) (conj (numbero v) (stringo v)))))
+   (run 1 (x) (forall (v) (symbolo v) (numbero v) (stringo v)))
    '())
 
 (test 'forall-conj-3
-   (run 1 (x) (forall (v) (conj (not-symbolo v) (not-numbero v))))
+   (run 1 (x) (forall (v) (not-symbolo v) (not-numbero v)))
    '())
 
 (test 'universal-conj-4
-   (run 1 (x) (forall (v) (conj (not-symbolo v) (conj (not-numbero v) (not-stringo v)))))
+   (run 1 (x) (forall (v) (not-symbolo v) (not-numbero v) (not-stringo v)))
    '())
 
 (test 'forall-conj-5
-   (run 1 (x) (forall (v) (conj (not-stringo v) (numbero v))))
+   (run 1 (x) (forall (v) (not-stringo v) (numbero v)))
    '())
 
 (test 'forall-conj-6
-   (run 1 (x) (forall (v) (conj (== 1 v) (== 2 v))))
+   (run 1 (x) (forall (v) (== 1 v) (== 2 v)))
    '())
 
 (test 'forall-conj-7
-   (run 1 (x) (forall (v) (conj (=/= 1 v) (=/= 2 v))))
+   (run 1 (x) (forall (v) (=/= 1 v) (=/= 2 v)))
    '())
 
 (test 'forall-forall-0
@@ -194,11 +209,11 @@
    '())
 
 (test 'forall-forall-imply-0
-   (run 1 (v) (forall (x) (forall (y) (imply (conj (numbero x) (symbolo y)) (=/= x y)))))
+   (run 1 (v) (forall (x) (forall (y) (implication ((numbero x) (symbolo y)) ((=/= x y))))))
    '((_.0)))
 
 (test 'forall-nested-disj-0
-   (run 1 (v) (forall (x) (forall (y) (disj (symbolo x) (numbero y)))))
+   (run 1 (v) (forall (x) (forall (y) (conde ((symbolo x)) ((numbero y))))))
    '())
 
 (test 'ende-basic-0
@@ -221,9 +236,9 @@
    (run 1 (q) (forall (x) (fresh (y) (== y (cons 1 x)))))
    '((_.0)))
 
-; (test 'ende-basic-5
-;    (run 1 (q) (forall (x) (fresh (y) (== x (cons 1 y)))))
-;    '())
+(test 'ende-basic-5
+   (run 1 (q) (forall (x) (fresh (y) (== x (cons 1 y)))))
+   '())
 
 (test 'ende-basic-6
    (run 1 (q) (forall (x) (=/= x q)))
@@ -261,9 +276,9 @@
    (run 1 (q) (fresh (a b) (== q (cons a b)) (forall (x) (=/= (cons x x) (cons a b))) ))
    '(#s(Ans ((_.0 . _.1)) ((=/= ((_.0 _.1)))))))
 
-; (test 'ende-basic-15
-;    (run 1 (q) (forall (z) (fresh (x y) (== (cons z y) x))))
-;    '())
+(test 'ende-basic-15
+   (run 1 (q) (forall (z) (fresh (x y) (== (cons z y) x))))
+   '((_.0)))
 
 (test 'ende-basic-16
    (run 1 (q) (forall (v) (disj* (== v 1) (=/= v 1) (== v 2))))
@@ -274,7 +289,7 @@
    '((_.0)))
 
 (test 'ende-basic-18
-   (run 1 (a b) (forall (v) (imply (conj (== v a) (=/= v b)) (=/= v v))))
+   (run 1 (a b) (forall (v) (implication ((== v a) (=/= v b)) ((=/= v v)))))
    '((_.0 _.0)))
 
 (test 'ende-basic-19
@@ -286,5 +301,8 @@
    '((_.0 _.0)))
 
 (test 'ende-basic-21
-   (run 1 (R) (forall (x y) (disj (disj (=/= y (cons 'a 'b)) (=/= x y) ) (== y R ))))
-   '(((a . b))))
+ (run 1 (R) (forall (x y) 
+                (conde ((=/= y (cons 'a 'b))) 
+                       ((=/= x y)) 
+                       ((== y R)))))
+ '(((a . b))))

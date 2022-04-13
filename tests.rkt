@@ -101,7 +101,7 @@
              (let ((actual e-actual) (expected e-expected))
                (if (equal? actual expected)
                  (printf "~s\n" 'success)
-                 (printf "FAILURE\nEXPECTED: ~s\nACTUAL: ~s\n"
+                 (printf "FAILURE\nEXPECTED : ~s\nACTUAL   : ~s\n"
                          expected actual))))))))
 
 ; (include "tests-unify.rkt")
@@ -120,8 +120,8 @@
 ; (include "tests-not-symbolo-not-numbero.rkt")
 ; (include "tests-implication.rkt")
 ; (include "tests-forall.rkt")
-; (include "tests-forall-undecidable.rkt")
-(include "tests-matcho-evalo.rkt")
+(include "tests-forall-undecidable.rkt")
+; (include "tests-matcho-evalo.rkt")
 
 ; (include "tests-rewrite.rkt")
 
@@ -163,7 +163,7 @@
 ;   (((_.0 _.1 _.2) _.3 (_.0 _.1 _.2 . _.3))) 
 ;   (((_.0 _.1 _.2 _.3) _.4 (_.0 _.1 _.2 _.3 . _.4)))))
 
-; (test 'sometimeso-0
+; (test 'sometimeso-0       ;;* Interesting note: with subsumsion guards, this is unable to produce more than one answer
 ;   (run 5 (q) (sometimeso q))
 ;   '((#t) (#t) (#t) (#t) (#t)))
 
@@ -205,15 +205,15 @@
 ;     (triangle black)
 ;     (pentagon green)))
 
-; ; (test 'evalo-literal
-; ;   (run 1 (e) (evalo e 5))
-; ;   '(((quote 5))))
-; ; (test 'evalo-quine
-; ;   (run 1 (e) (evalo e e))
-; ;   '(((app (lambda (list (quote app) (var ())
-; ;                         (list (quote quote) (var ()))))
-; ;           (quote (lambda (list (quote app) (var ())
-; ;                                (list (quote quote) (var ())))))))))
+; (test 'evalo-literal
+;   (run 1 (e) (evalo e 5))
+;   '(((quote 5))))
+; (test 'evalo-quine
+;   (run 1 (e) (evalo e e))
+;   '(((app (lambda (list (quote app) (var ())
+;                         (list (quote quote) (var ()))))
+;           (quote (lambda (list (quote app) (var ())
+;                                (list (quote quote) (var ())))))))))
 
 ; ; (displayln "\nBeginning slower tests...")
 ; ; (test 'evalo-twine

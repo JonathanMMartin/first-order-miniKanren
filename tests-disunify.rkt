@@ -23,7 +23,7 @@
 
 (test 'diseq-5
   (run* (p r s) (=/= (list p p) (list r s)))
-  '(#s(Ans (_.0 _.1 _.2) ((=/= ((_.0 _.1) (_.0 _.2)))))))
+  '(#s(Ans (_.0 _.1 _.2) ((=/= ((_.0 _.2) (_.1 _.2)))))))
 
 (test 'diseq-6
   (run* (q) (=/= q 'hello))
@@ -521,7 +521,7 @@
   '(#s(Ans (_.0) ((=/= ((#f _.0)))))))
 
 (test "non watch-var pair implies satisfied"
-  (run 1 (a b c d)
+  (run 2 (a b c d)
        (=/= (cons a c)
             (cons b d))
        (== c '(1 . 2))

@@ -31,7 +31,7 @@
 
 (test 'symbolo-with-conde-0
   (run* (x) (conde ((== x 12)) ((symbolo x) (=/= 13 x))))
-  '((12) #s(Ans (_.0) ((sym _.0)))))
+  '(#s(Ans (_.0) ((sym _.0))) (12)))
 
 (test 'symbolo-with-conde-1
   (run* (x) (conde ((== x 12)) ((=/= x 'm) (symbolo x))))

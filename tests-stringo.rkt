@@ -139,6 +139,25 @@
       (stringo z)))
   '((_.0)))
 
+(test "stringo-24-a-1"
+  (run* (q)
+    (fresh (w x y z)
+      (conde
+        ((=/= w y))
+        ((=/= x z)))
+      (stringo w)
+      (stringo z)))
+  '((_.0)))
+
+(test "stringo-24-a-2"
+  (run* (w x y z)
+    (conde
+      ((=/= w y))
+      ((=/= x z)))
+    (stringo w)
+    (stringo z))
+  '(#s(Ans (_.0 _.1 _.2 _.3) ((=/= ((_.0 _.2) (_.1 _.3))) (str _.0) (str _.3)))))
+
 (test "stringo-24-b"
   (run* (q)
     (fresh (w x y z)
