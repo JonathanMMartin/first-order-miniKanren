@@ -104,64 +104,64 @@
                  (printf "FAILURE\nEXPECTED : ~s\nACTUAL   : ~s\n"
                          expected actual))))))))
 
-(include "tests-unify.rkt")
-(include "tests-disunify.rkt")
-(include "tests-symbolo.rkt")
-(include "tests-stringo.rkt")
-(include "tests-numbero.rkt")
-(include "tests-pairo.rkt")
-(include "tests-listo.rkt")
-(include "tests-symbolo-numbero.rkt")
-(include "tests-not-symbolo.rkt")
-(include "tests-not-stringo.rkt")
-(include "tests-not-numbero.rkt")
-(include "tests-not-pairo.rkt")
-(include "tests-not-listo.rkt")
-(include "tests-not-symbolo-not-numbero.rkt")
-(include "tests-implication.rkt")
-(include "tests-forall.rkt")
+; (include "tests-unify.rkt")
+; (include "tests-disunify.rkt")
+; (include "tests-symbolo.rkt")
+; (include "tests-stringo.rkt")
+; (include "tests-numbero.rkt")
+; (include "tests-pairo.rkt")
+; (include "tests-listo.rkt")
+; (include "tests-symbolo-numbero.rkt")
+; (include "tests-not-symbolo.rkt")
+; (include "tests-not-stringo.rkt")
+; (include "tests-not-numbero.rkt")
+; (include "tests-not-pairo.rkt")
+; (include "tests-not-listo.rkt")
+; (include "tests-not-symbolo-not-numbero.rkt")
+; (include "tests-implication.rkt")
+; (include "tests-forall.rkt")
 (include "tests-forall-undecidable.rkt")
 ; (include "tests-matcho-evalo.rkt")
 
 ; (include "tests-rewrite.rkt")
 
-(display "\nRunning remaining tests")
-(newline)
+; (display "\nRunning remaining tests")
+; (newline)
 
-(test 'appendo-
-  (run* (xs ys) (appendo xs ys '(a)))
-  '((()        (a))
-    ((a)       ())))
+; (test 'appendo-
+;   (run* (xs ys) (appendo xs ys '(a)))
+;   '((()        (a))
+;     ((a)       ())))
 
-(test 'appendo-0
-  (run* (xs ys) (appendo xs ys '(a b c d)))
-  '((()        (a b c d))
-    ((a)       (b c d))
-    ((a b)     (c d))
-    ((a b c)   (d))
-    ((a b c d) ())))
+; (test 'appendo-0
+;   (run* (xs ys) (appendo xs ys '(a b c d)))
+;   '((()        (a b c d))
+;     ((a)       (b c d))
+;     ((a b)     (c d))
+;     ((a b c)   (d))
+;     ((a b c d) ())))
 
-(test 'appendo-1
-  (run* (q) (appendo '(a b c) '(d e) q))
-  '(((a b c d e))))
+; (test 'appendo-1
+;   (run* (q) (appendo '(a b c) '(d e) q))
+;   '(((a b c d e))))
 
-(test 'appendo-2
-  (run* (q) (appendo q '(d e) '(a b c d e)))
-  '(((a b c))))
+; (test 'appendo-2
+;   (run* (q) (appendo q '(d e) '(a b c d e)))
+;   '(((a b c))))
 
-(test 'appendo-3
-  (run* (q) (appendo '(a b c) q '(a b c d e)))
-  '(((d e))))
+; (test 'appendo-3
+;   (run* (q) (appendo '(a b c) q '(a b c d e)))
+;   '(((d e))))
 
-(test 'appendo-4
-  (run 5 (q)
-    (fresh (l s out)
-      (appendo l s out)
-      (== (cons l (cons s (cons out '()))) q)))
-  '(((() _.0 _.0)) (((_.0) _.1 (_.0 . _.1)))
-  (((_.0 _.1) _.2 (_.0 _.1 . _.2))) 
-  (((_.0 _.1 _.2) _.3 (_.0 _.1 _.2 . _.3))) 
-  (((_.0 _.1 _.2 _.3) _.4 (_.0 _.1 _.2 _.3 . _.4)))))
+; (test 'appendo-4
+;   (run 5 (q)
+;     (fresh (l s out)
+;       (appendo l s out)
+;       (== (cons l (cons s (cons out '()))) q)))
+;   '(((() _.0 _.0)) (((_.0) _.1 (_.0 . _.1)))
+;   (((_.0 _.1) _.2 (_.0 _.1 . _.2))) 
+;   (((_.0 _.1 _.2) _.3 (_.0 _.1 _.2 . _.3))) 
+;   (((_.0 _.1 _.2 _.3) _.4 (_.0 _.1 _.2 _.3 . _.4)))))
 
 ; (test 'sometimeso-0       ;;* Interesting note: with subsumsion guards, this is unable to produce more than one answer
 ;   (run 5 (q) (sometimeso q))
