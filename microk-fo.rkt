@@ -31,6 +31,8 @@
 
 (require "common.rkt")
 
+(define subsumption-guard? #f)
+
 (define verbose? #f)
 (define logs? #f)
 (define badgoal-check? #f)
@@ -206,7 +208,7 @@
                               (A (car a))
                               (B (cdr a))
                               (C (if (has-answer? g1) g2 g1)))
-                          (cons A (disj (list B C)))))
+                          (cons A (disj (flatten-disj (list B C))))))
     
     ((conj? g)         (let* ((glst (conj-glst g))
                               (g1 (car glst))
@@ -217,12 +219,16 @@
                               (A (car g1))
                               (B (cdr g1))
                               (C (car g2))
-                              (D (cdr g2)))
+                              (D (cdr g2))
+                              (AC (conj (list A C)))
+                              (AD (conj (list A D)))
+                              (BC (conj (list B C)))
+                              (BD (conj (list B D))))
                           (cond
-                            ((and (false? B) (false? D)) (cons (conj (list A C)) (false)))
-                            ((false? B)                  (cons (conj (list A C)) (conj (list A D))))
-                            ((false? D)                  (cons (conj (list A C)) (conj (list B C))))
-                            (else                        (cons (conj (list A C)) (disj (list (conj (list A D)) (conj (list B C)) (conj (list B D)))))))))    
+                            ((and (false? B) (false? D)) (cons AC (false)))
+                            ((false? B)                  (cons AC AD))
+                            ((false? D)                  (cons AC BC))
+                            (else                        (cons AC (disj (flatten-disj (list AD BC BD))))))))    
     
     ((typeo? g)        (cons g (false)))
     ((not-typeo? g)    (cons g (false)))
@@ -249,7 +255,7 @@
 |#
 (define (unfold g)
   (match g
-    ((disj glst)          (disj (map unfold glst)))
+    ((disj glst)          (disj (unfold-last glst '()))) ;(disj (map unfold glst)))
     ((conj glst)          (conj (map unfold glst)))
     ((imply g1 g2)        (imply (unfold g1) (unfold g2)))
     ((existential v h)    (existential v (unfold h)))
@@ -257,6 +263,12 @@
     ((relate thunk _)     (thunk))
     ((not-relate thunk _) (negate-goal (thunk)))
     (_                    g)))
+
+(define (unfold-last glst acc)
+  (match glst
+    ('() (reverse acc))
+    ((cons h '()) (cons (unfold h) (reverse acc)))
+    ((cons h hlst) (unfold-last hlst (cons h acc)))))
 
 #|
   Used for debugging purposes in verbose mode.
@@ -292,13 +304,17 @@
         (if logs? (pretty-g g) #f)
         (if verbose? (display-and-continue "\nnorm g: " g (const #f) #t) #f)
         (cond
-          ((decidable? g) (if verbose? (display-and-continue "g is dec" g) g))
+          ((and (not subsumption-guard?) (decidable? g)) (if verbose? (display-and-continue "g is dec" g) g))
           ((has-answer? inner-g) (let* ((extracted (extract-answer inner-g))
                                         (answer (normalize-goal (car extracted)))
                                         (remaining (cdr extracted))
+                                        (remaining (if (conj? remaining) (conj (flatten-conj (conj-glst remaining))) remaining))
                                         (g1 (set-inner-goal g (normalize-extracted answer)))
-                                        (g2 (set-inner-goal g remaining))) ;(conj (negate-goal answer) remaining))))
-                                    (if verbose? (display-and-continue "\ngoal after extraction: " (disj (list g1 g2)) identity #t) (disj (list g1 g2)))))
+                                        (g2 (set-inner-goal g (if subsumption-guard? 
+                                                                  (conj (flatten-conj (list remaining (negate-goal answer))))
+                                                                  remaining)))
+                                        (returnable (if (false? remaining) g1 (disj (list g1 g2)))))
+                                    (if verbose? (display-and-continue "\ngoal after extraction: " returnable identity #t) returnable)))
           (verbose?     (display-and-continue "nothing is good, we unfold" g (lambda (x) (simplify (unfold x))))) 
           (else         (simplify (unfold g))))))))
 
@@ -345,7 +361,7 @@
 
       ;; Recursive normalization
       ((disj glst)          (let* ((glst (map/shortcircuit normalize-goal '() glst (true) (false)))
-                                   (glst (flatten-disj glst '()))
+                                   (glst (flatten-disj glst))
                                    (glst (sort glst goal-diseq-first<?)))
                               (match glst
                                 ('() (false))
@@ -366,7 +382,7 @@
 
       ;; Normalize conjunction                      
       ((conj glst)          (let* ((glst (map/shortcircuit normalize-goal '() glst (false) (true)))
-                                   (glst (flatten-conj glst '()))
+                                   (glst (flatten-conj glst))
                                    (glst (sort glst goal<?)))
                               (match glst
                                 ('() (true))
@@ -413,21 +429,27 @@
 #|
   Turns binary disjunctions into a list of goals.
 |#
-(define (flatten-disj glst acc)
+(define (flatten-disj glst)
+  (flatten-disj-helper glst '()))
+
+(define (flatten-disj-helper glst acc)
   (match glst
     ('()                     (reverse acc))
-    ((cons (disj qlst) hlst) (flatten-disj (append qlst hlst) acc))
-    ((cons h hlst)           (flatten-disj hlst (cons h acc)))
+    ((cons (disj qlst) hlst) (flatten-disj-helper (append qlst hlst) acc))
+    ((cons h hlst)           (flatten-disj-helper hlst (cons h acc)))
     (g                       g)))
 
 #|
   Turns binary conjunctions into a list of goals.
 |#
-(define (flatten-conj glst acc)
+(define (flatten-conj glst)
+  (flatten-conj-helper glst '()))
+
+(define (flatten-conj-helper glst acc)
   (match glst
     ('()                     (reverse acc))
-    ((cons (conj qlst) hlst) (flatten-conj (append qlst hlst) acc))
-    ((cons h hlst)           (flatten-conj hlst (cons h acc)))
+    ((cons (conj qlst) hlst) (flatten-conj-helper (append qlst hlst) acc))
+    ((cons h hlst)           (flatten-conj-helper hlst (cons h acc)))
     (g                       g)))
 
 #|
