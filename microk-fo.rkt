@@ -35,7 +35,7 @@
 
 (define verbose? #f)
 (define logs? #f)
-(define badgoal-check? #f)
+(define badgoal-check? #t)
 
 ;; first-order microKanren
 (struct true        ()                       #:prefab)
